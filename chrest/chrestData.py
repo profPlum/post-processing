@@ -1,3 +1,4 @@
+
 import argparse
 import pathlib
 import sys
@@ -298,7 +299,8 @@ class ChrestData:
                 # save any fields
                 fields = data.create_group('fields')
                 for field in self.new_data:
-                    newField = fields.create_dataset(field, data=self.new_data[field][index])
+                    newField = fields.create_dataset(field, data=self.new_data[field][index], compression="gzip",
+                                                     dtype=np.float32)
                     if field in self.new_data_component_names:
                         newField.attrs.create('components', self.new_data_component_names[field])
 
@@ -307,6 +309,45 @@ class ChrestData:
 
         # write the xdmf file
         xdfm.write_to_file(str(path_template) + ".xdmf")
+    
+    def savepart(self, path_template,i,intlen):
+        # generate an xdfm object at the same time
+        xdfm = XdmfGenerator()
+
+        # march over the files
+        for index in range(len(self.times)):
+            fileindex=index+i*intlen
+            # Name the file
+            hdf5_path = str(path_template) + f".{fileindex:05d}.hdf5"
+
+            # Open a new file
+            with h5py.File(hdf5_path, 'w') as hdf5:
+                # Write in the grid information
+                data = hdf5.create_group('data')
+                # store the metadata
+                for key in self.metadata:
+                    data.attrs.create(key, self.metadata[key])
+                data.attrs.create('time', self.times[index])
+
+                # write the grid information
+                grid = data.create_group('grid')
+                grid.create_dataset('start', data=np.asarray(self.start_point))
+                grid.create_dataset('end', data=np.asarray(self.end_point))
+                grid.create_dataset('discretization', data=np.asarray(self.delta))
+
+                # save any fields
+                fields = data.create_group('fields')
+                for field in self.new_data:
+                    newField = fields.create_dataset(field, data=self.new_data[field][index], compression="gzip",
+                                                     dtype=np.float32)
+                    if field in self.new_data_component_names:
+                        newField.attrs.create('components', self.new_data_component_names[field])
+
+            # add to the xdfm info
+            xdfm.append_chrest_hdf5(hdf5_path)
+
+        # write the xdmf file
+        xdfm.write_to_file(str(path_template) + ".xdmf")    
 
     """
     Compute the mean and rms of a field and return in new chrest data
@@ -376,5 +417,3 @@ if __name__ == "__main__":
 
         print(args.field + "_rms shape: ", rms_field.shape)
         print(args.field + "_rms times: ", times)
-
-
