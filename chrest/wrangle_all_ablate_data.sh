@@ -18,7 +18,7 @@ ablate2chrest() {
 	run_1task python ablateData.py --file "$1" --fields monitor_densityEnergySource:souener monitor_densityYiSource:souspec monitor_yi:Yi monitor_zMix:zmix
 }
 ## TODO: comment once done debugging!
-#ablate2chrest "$data_dir"/flowField.00619.hdf5
+#ablate2chrest "$data_dir"/flowField.00019.hdf5
 #echo if this worked without errors then come back and uncomment remainder of the script!
 
 # TODO: uncomment once done debugging!
@@ -31,7 +31,7 @@ chrest2csv() {
 	run_1task python wrangle_chrest_dataset_for_UQ.py "$1"
 }
 ## TODO: comment once done debugging!
-#chrest2csv "$data_dir"/flowField.00619.hdf5 
+#chrest2csv "$data_dir"/flowField.00019.hdf5 
 
 amap chrest2csv "${data_dir}/flowField_mixtureFraction."*'.chrest/flowField_mixtureFraction.'*'.chrest.'*'.hdf5'
 wait
