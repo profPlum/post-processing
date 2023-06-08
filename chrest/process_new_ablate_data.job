@@ -13,4 +13,4 @@
 #SBATCH --ntasks-per-node=30
 #SBATCH --time=00:20:00
 
-. wrangle_all_ablate_data-ccr.sh
+. wrangle_all_ablate_data.sh
