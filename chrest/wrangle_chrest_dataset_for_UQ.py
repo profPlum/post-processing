@@ -97,4 +97,4 @@ if __name__=='__main__':
 
     groups = make_groups(df, n = 100)
     df['group'] = groups
-    df.to_csv(f"{os.path.dirname(hdf5_file)}/chrest_data.csv", index=False)
+    df.to_csv(f"{os.path.dirname(hdf5_file)}/chrest_data.csv.gz", index=False)

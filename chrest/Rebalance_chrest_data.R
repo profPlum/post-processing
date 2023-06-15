@@ -44,6 +44,6 @@ df = read_csv(input_fn) |> filter(group %in% kept_groups)
 print(c('colnames', colnames(df)))
 
 # write back to input file
-out_fn=sub('\\.csv', '-rebalanced\\.csv', input_fn)
+out_fn=sub('\\.csv.*$', '-rebalanced\\.csv.gz', input_fn)
 cat('output file:', out_fn)
 write.csv(df, out_fn)
