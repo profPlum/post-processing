@@ -2,8 +2,8 @@
 
 internal_hdf5="$(basename ${1//.hdf5/}).chrest.00000.hdf5"
 chrest_data="${1//.hdf5/}.chrest/$internal_hdf5"
-intermediate_csv="$(dirname $chrest_data)/chrest_data.csv"
-final_output="$(dirname $chrest_data)/chrest_data-rebalanced.csv"
+intermediate_csv="$(dirname $chrest_data)/chrest_data.csv.gz"
+final_output="$(dirname $chrest_data)/chrest_data-rebalanced.csv.gz"
 
 if [ -e "$final_output" ]; then 
 	echo exiting, final output already exists

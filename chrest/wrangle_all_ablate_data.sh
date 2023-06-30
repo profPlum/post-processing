@@ -5,7 +5,7 @@ data_dir='/user/dwyerdei/data/ablate_data_processing/raw_ablate_data/flowField_m
 #'/Volumes/UB_CHREST/v2-560x80x80-768/flowField_mixtureFraction/'
 
 echo removing all existing chrest csv files!
-rm "$data_dir"/*.chrest/chrest_data.csv "$data_dir"/*.chrest/*.hdf5 "$data_dir"/*.chrest/*.xdmf
+rm "$data_dir"/*.chrest/chrest_data.csv.gz "$data_dir"/*.chrest/*.hdf5 "$data_dir"/*.chrest/*.xdmf
 
 # do dependency injection for srun wrapper (or empty if local)
 if [ -z $(which srun) ]; then
