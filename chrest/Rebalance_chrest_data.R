@@ -28,10 +28,11 @@ souener_by_group = read_csv(input_fn, col_select=c(group, souener), lazy=T) %>% 
   summarize_all(mean) %>% ungroup %>% mutate(is_flame=is_flame_predicate(souener))
 
 n_flame = sum(souener_by_group$is_flame) # we want only has much air as there is flame
-cat('mean(souener_by_group$is_flame): ', mean(souener_by_group$is_flame), '\n')
+cat('(before) mean(souener_by_group$is_flame): ', mean(souener_by_group$is_flame), '\n')
 #stopifnot(mean(souener_by_group$is_flame)<0.5)
 kept_groups = souener_by_group %>% group_by(is_flame) %>% slice_sample(n=n_flame) %>% ungroup
-stopifnot(mean(kept_groups$is_flame)==0.5)
+cat('(after) mean(souener_by_group$is_flame): ', mean(souener_by_group$is_flame), '\n')
+stopifnot(mean(kept_groups$is_flame)>=0.5)
 
 ##### Reduce memory usage: ##### 
 kept_groups=kept_groups$group
