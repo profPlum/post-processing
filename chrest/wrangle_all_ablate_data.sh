@@ -20,7 +20,7 @@ fi
 process_ablate="$run_1task ./process_single_ablate_file.sh"
 
 amap() { # asynchronous version of map!
-    cmd="$1"; shift; for x in "$@"; do eval "$cmd $x" &>> amap_out.log & done
+    cmd="$1"; shift; for x in "$@"; do eval "$cmd $x" & done
 } # NOTE: we used to have the entire for-loop inside a sub-shell (i.e. inside parenthesis (for ... done)), why was this? Is it still important?
 
 amap "$process_ablate" "$data_dir/"*.hdf5
