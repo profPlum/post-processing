@@ -102,6 +102,7 @@ class AblateData:
         number_cells = self.cells.shape[0]
 
         vertices = self.vertices[:]
+        if len(vertices.shape)==1: vertices=vertices.reshape(-1,1)
         vertices_dim = vertices.shape[1]
 
         coords = np.zeros((number_cells, dimensions))
