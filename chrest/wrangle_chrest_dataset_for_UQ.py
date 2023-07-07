@@ -78,15 +78,27 @@ def make_groups(df, n=100):
     return groups
 
 if __name__=='__main__':
-    hdf5_file = sys.argv[1] # first arg is the file
-    #hdf5_file = '/Volumes/UB_CHREST/v2-560x80x80-768/flowField_mixtureFraction/flowField_mixtureFraction.00000.chrest/flowField_mixtureFraction.00000.chrest.00000.hdf5'
+    parser = argparse.ArgumentParser(description='wrangle chrest data file by adding UQ groups (for cell coursening)')
+    parser.add_argument('--file', dest='file', type=str, required=True,
+                        help='The path to the ablate hdf5 file containing the ablate data.')
+    parser.add_argument('--fields', dest='fields', type=str,
+                        help='The list of fields to map from ablate to chrest in format  --field '
+                             'ablate_name:chrest_name e.g. --field aux_temperature:temperature '
+                             'aux_velocity:vel', nargs='+', default=['souener', 'zmix', 'Yi', 'souspec'])
+    args = parser.parse_args()
+    print('unprocessed fields: ', args.fields)
+    args.fields = [field.split(':')[-1] for field in args.fields] 
+    print('post-processed fields: ', args.fields)
+    # NOTE: our script passes in fields in this format: aux_temperature:temperature,
+    # which we are supporting for conveince however we already applied the alias in 
+    # ablateData.py, so now we'd just extract the alias part & use that
+    
 
     # this is some example code for chest file post processing
-    chrest_data = ChrestData(hdf5_file)
+    chrest_data = ChrestData(args.file)
     df_builder = Array2DF_Builder()
 
-    fields_names = ['souener', 'zmix', 'Yi', 'souspec']
-    df_builder.add_chrest_fields(chrest_data, fields_names)
+    df_builder.add_chrest_fields(chrest_data, args.fields)
     print(df_builder)
 
     # This requires manual code because it is not a "field"
@@ -97,4 +109,4 @@ if __name__=='__main__':
 
     groups = make_groups(df, n = 100)
     df['group'] = groups
-    df.to_csv(f"{os.path.dirname(hdf5_file)}/chrest_data.csv.gz", index=False)
+    df.to_csv(f"{os.path.dirname(args.file)}/chrest_data.csv.gz", index=False)

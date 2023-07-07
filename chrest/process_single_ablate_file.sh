@@ -1,6 +1,7 @@
 #!/bin/bash
 
 #should_rebalance=T # set this flag to T or "" (empty)
+#chemtab_output=T # should be passed as an argument!
 
 echo first arg: $1
 echo should_rebalance: $should_rebalance
@@ -24,9 +25,18 @@ if [ -e "$final_output" ]; then
 fi
 echo proceeding! with input hdf5: $1
 
+echo checking if we have chemtab output...
+if [ "$chemtab_output" ]; then
+    echo answer: True
+    fields_list="monitor_energySource:souener monitor_Yi:Yi monitor_progressSource:soucpv"
+else
+    echo answer: False
+    fields_list="monitor_energySource:souener monitor_yiSource:souspec monitor_Yi:Yi monitor_zMix:zmix"
+fi
+
 # processes 1 ablate file
-python ablateData.py --file "$1" --fields  monitor_energySource:souener monitor_yiSource:souspec monitor_Yi:Yi monitor_zMix:zmix
-python wrangle_chrest_dataset_for_UQ.py "$chrest_data"
+python ablateData.py --file "$1" --fields $fields_list 
+python wrangle_chrest_dataset_for_UQ.py --file "$chrest_data" --fields $fields_list
 
 [ $should_rebalance ] && Rscript Rebalance_chrest_data.R "$intermediate_csv"
 
