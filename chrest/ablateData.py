@@ -47,6 +47,8 @@ class AblateData:
             if self.cells is None:
                 self.cells = hdf5["viz"]["topology"]["cells"]
                 self.vertices = hdf5["geometry"]["vertices"][:]
+                if len(self.vertices.shape)==1: # this format must be explicit for 1D
+                    self.vertices=self.vertices.reshape(-1,1)
 
             # extract the time
             time = hdf5['time'][0][0]
@@ -80,6 +82,10 @@ class AblateData:
         except (Exception,):
             print("Could not locate yaml files for metadata")
 
+    @property
+    def raw_data_dim(self):
+        return self.vertices.shape[1]
+
     """
     Reports the fields from each the file
     """
@@ -102,7 +108,6 @@ class AblateData:
         number_cells = self.cells.shape[0]
 
         vertices = self.vertices[:]
-        if len(vertices.shape)==1: vertices=vertices.reshape(-1,1)
         vertices_dim = vertices.shape[1]
 
         coords = np.zeros((number_cells, dimensions))
@@ -197,7 +202,7 @@ class AblateData:
     converts the supplied fields ablate object to chrest data object.
     """
 
-    def map_to_chrest_data(self, chrest_data, field_mapping,iteration, field_select_components=dict(),
+    def map_to_chrest_data(self, chrest_data, field_mapping, iteration, field_select_components=dict(),
                            max_distance=sys.float_info.max):
         # get the cell centers for this mesh
         cell_centers = self.compute_cell_centers(chrest_data.dimensions)
@@ -302,13 +307,18 @@ if __name__ == "__main__":
     
     parser.add_argument('--batchsize', dest='batchsize', type=float,
                         help="The number of files to be loaded in at once")
-    
-    
-
+    parser.add_argument('--no-project', action='store_true', 
+                        help='shrink dimensions of chrest grid to match dimensions seen in raw data')
     args = parser.parse_args()
+
 
     # this is some example code for chest file post-processing
     ablate_data = AblateData(args.file)
+
+    if args.no_project:
+        args.delta=args.delta[:ablate_data.raw_data_dim]
+        args.start=args.start[:ablate_data.raw_data_dim]
+        args.end=args.end[:ablate_data.raw_data_dim]
 
     if args.print_fields:
         print("Available fields: ", ', '.join(ablate_data.get_fields()))
@@ -327,6 +337,7 @@ if __name__ == "__main__":
     # create a chrest data
     chrest_data = ChrestData()
     chrest_data.setup_new_grid(args.start, args.end, args.delta)
+    print(chrest_data.dimensions)
     
     if args.batchsize is not None:
         if len(ablate_data.times) > args.batchsize:

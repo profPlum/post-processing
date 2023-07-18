@@ -35,7 +35,7 @@ else
 fi
 
 # processes 1 ablate file
-python ablateData.py --file "$1" --fields $fields_list 
+python ablateData.py --file "$1" --fields $fields_list --no-project 
 python wrangle_chrest_dataset_for_UQ.py --file "$chrest_data" --fields $fields_list
 
 [ $should_rebalance ] && Rscript Rebalance_chrest_data.R "$intermediate_csv"
