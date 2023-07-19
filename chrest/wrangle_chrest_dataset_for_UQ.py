@@ -1,44 +1,77 @@
-from chrestData import *
-import pandas as pd
 import os
-from ablateData import AblateData
+import pandas as pd
+import numpy as np
+import argparse
 
 class Array2DF_Builder:
     def __init__(self):
-        self.dfs = []
-        self._df = None
+        self._dfs = [] # the list of new dfs which are pending merge into master_df
+        self._master_df = None # the currently build master_df (has x,y,z as indices by default)
 
-    def add_df_array(self, df_array, columns):
+    def add_df_array(self, df_array, columns, coords):
         """assumes same shape as other arrays & that last dimensions is the "columns" dimension """
         # order='C' means last index changes fastest for reading/writing of arrays: 
         # https://numpy.org/doc/stable/reference/generated/numpy.reshape.html#numpy.reshape
         # this is exactly what we want (since last dimension is the components dimension)
-        df_array = df_array.reshape(-1, df_array.shape[-1], order='C')
-        self.dfs.append(pd.DataFrame(df_array, columns=columns))
-        self._df = None
+        df_array = np.asarray(df_array).reshape(-1, df_array.shape[-1], order='C').squeeze()
+        df = pd.DataFrame(df_array, columns=columns)
+        assert len(df)==len(coords)
+        df = pd.concat([df,coords],axis=1)
+        df=df.set_index(list(coords.columns)) # adds coords (df) as the multi-index for df
+        self._dfs.append(df)
     
     def __str__(self):
         rep = ''
-        for i, df in enumerate(self.dfs):
+        for i, df in enumerate(self._dfs):
             rep += f'df #{i}: \n' + str(df.describe()) + '\n\n'
         return rep
-
-    def add_chrest_fields(self, chrest_data, fields: list): # TODO: remove chrest_data arg!!
-        for field in fields:
-            array, times, component_names = chrest_data.get_field(field) # this is literally the only time we use chrest_data!
-            assert (component_names is None) == (len(array.shape)==4) # sanity check in case interface changes...
+    
+    def compute_ablate_coordinates(self, ablate_data, dim_names = ['x','y','z']):
+        """" Get coords from ablate_data (as df) & rounds to avoid machine error """
+        # Coords requires manual code because it is not a "field"
+        # Also ensure that the ablate_data objects are compatible!
+        coords = ablate_data.compute_cell_centers(dimensions=len(dim_names))
+        coords = coords.round(decimals=7)
+        # round above machine epsilon so that numbers can be trusted for join!
+        
+        print('coords.shape: ', coords.shape)
+        return pd.DataFrame(coords, columns=dim_names)
+    
+    def add_ablate_fields(self, ablate_data, fields: list):
+        """ for adding desired fields from (possibly multiple) ablate_data objects """
+        try:
+            ablate_data.get_field(ablate_data.get_fields(), 1)
+            raise RuntimeError("Interface has changed! Now Interwal is relevant parameter!=0")
+        except IndexError: None
+        
+        coords = self.compute_ablate_coordinates(ablate_data)
+        
+        for field in fields.copy():
+            # split field/aliases pairs or simply default alias=field
+            ablate_field, alias = (field.split(':') + [field])[:2]
+            try: 
+                array, times, component_names = ablate_data.get_field(ablate_field, 0)
+            except Exception as e:
+                print('error! skipping: ', e)
+                continue
+            assert (component_names is None) == (len(array.shape)==2)
             if component_names is None: # for 'single component cases'
-                array = np.expand_dims(array, -1)
-                component_names = [field]
+                #array = np.expand_dims(array, -1)
+                component_names = [alias]
             else:
-                component_names = [field + col for col in component_names]
-            self.add_df_array(array, columns=component_names)
-
+                component_names = [alias + col for col in component_names]
+            self.add_df_array(array, columns=component_names, coords=coords)
+            fields.remove(field)
+    
     @property
     def df(self):
-        if self._df is None:
-            self._df = pd.concat(self.dfs, axis=1)
-        return self._df
+        if self._master_df is None: self._master_df = self._dfs.pop(0)
+        if len(self._dfs): # check if we need to add new dataframes
+            self._master_df = self._master_df.join(self._dfs) # does list-join across all the recorded dataframes
+            self._dfs.clear()
+        
+        # puts x,y,z index back into columns
+        return self._master_df.reset_index()
 
 def plot_cell_groups(df):
     """ 
@@ -56,16 +89,16 @@ def plot_cell_groups(df):
     fig = px.scatter_3d(df, x='x', y='y', z='z', color='group')
     fig.show()
 
-def make_groups(df, n=100):
+def make_groups(df, n=100, dims = ['x','y','z']):
     """ 
     makes super-cell groups
     :param df: df with x,y,z coordinates (everything else optional)
     :param n: n super-cells along each axis, i.e. super-cell array is nxnxn
+    :param dims: dimension names, should essentially be constant unless you want to use space-time
     """
-    dims = ['x','y','z']
-    df[dims] -= df[dims].min() # remove negative values!
-    max_ = df[dims].max().max() # complete coordinate grid must be a cube, so we use only 1 max value
-    print(max_)
+    new_coords = df[dims] - df[dims].min() # remove negative values!
+    max_ = new_coords.max().max() # complete coordinate grid must be a cube, so we use only 1 max value
+    print('max_:', max_)
 
     #max_signed_32_int_val=2,147,483,647
     # 10^18 is as high as it can get for signed 32bit int without overflow!!
@@ -76,55 +109,77 @@ def make_groups(df, n=100):
     
     # idea is create hash by using different decimal places & sum
     powers = 10**(np.arange(len(dims), dtype='int64')*decimal_power)
-    print(powers)
+    print('powers: ', powers)
 
     # divide by max & multiply by n
     # NOTE: the new coordinates represent the coordinates
     # of the hypothetical super-cells (i.e. in a 3d array)
-    new_coords = ((df[dims]/max_)*n-1e-8).astype('int64')
+    new_coords = ((new_coords/max_)*n-1e-8).astype('int64')
     groups = (powers*new_coords).sum(axis=1)
+    print('new_coords: ')
     print(new_coords.describe())
+    print('groups: ')
     print(groups.head())
+    print(groups.describe())
 
     # since it is 3d and we want n across each dimension that makes n^3 super-cubes
     # (or less since technically not ever "super-group" will have members)
     assert len(np.unique(groups))<=n**len(dims)
     return groups
 
+# Monkey Patch to Fix Matt's code locally
+def AblateData_factory(files):
+    from ablateData import AblateData
+    ablate_data = AblateData(files)
+    if len(ablate_data.vertices)==1:
+        ablate_data.vertices=ablate_data.vertices.reshape(-1,1)
+    return ablate_data
+
+
+# def aggregate_AblateData_field_query(ablate_data: list, fields: list):
+#     if type(ablate_data) is not list:
+#         ablate_data = [ablate_data]
+#     dfs = {}
+#     for ablate_data_obj in ablate_data:
+#         df_builder = Array2DF_Builder()
+#         df_builder.add_fields(ablate_data_obj, fields)
+#         print(df_builder)
+#         dfs[ablate_data_obj] = df_builder.df
+#     master_df = None
+#     for key, df in dfs.items():
+
 if __name__=='__main__':
-    parser = argparse.ArgumentParser(description='wrangle chrest data file by adding UQ groups (for cell coursening)')
-    parser.add_argument('--file', dest='file', type=str, required=True,
-                        help='The path to the ablate hdf5 file containing the ablate data.')
+    parser = argparse.ArgumentParser(description='wrangle ablate data file by adding UQ groups (for cell coursening)')
+    parser.add_argument('--files', dest='files', type=str, required=True, nargs='+',
+                        help='The path to the ablate hdf5 files containing the ablate data.'
+                        'files beyond the first are only used when field cannot be found in first file')
     parser.add_argument('--fields', dest='fields', type=str,
-                        help='The list of fields to map from ablate to chrest in format  --field '
-                             'ablate_name:chrest_name e.g. --field aux_temperature:temperature '
-                             'aux_velocity:vel', nargs='+', default=['souener', 'zmix', 'Yi', 'souspec'])
+                        help='The list of fields to map from ablate to alias in format  --field '
+                             'ablate_name:alias_name e.g. --field aux_temperature:T '
+                             'aux_velocity:vel', nargs='+')
     parser.add_argument('--n-cubes-per-dim', type=int, default=100, 
                         help='number of cubes touching each axis of super-cell grid array')
     parser.add_argument('--plot', action='store_true', help='whether to plot the cell groups')
     args = parser.parse_args()
-    print('unprocessed fields: ', args.fields)
-    args.fields = [field.split(':')[-1] for field in args.fields] 
-    print('post-processed fields: ', args.fields)
-    # NOTE: our script passes in fields in this format: aux_temperature:temperature,
-    # which we are supporting for conveince however we already applied the alias in 
-    # ablateData.py, so now we'd just extract the alias part & use that
+    print('fields: ', args.fields)
     
+    ablate_data = [AblateData_factory(fn) for fn in args.files]
 
-    # this is some example code for chest file post processing
-    chrest_data = ChrestData(args.file) # TODO: remove ChrestData dependence!
+    #n_dims = ablate_data.vertices.shape[1]
+    
     df_builder = Array2DF_Builder()
-
-    df_builder.add_chrest_fields(chrest_data, args.fields) # TODO: remove ChrestData dependence!
+    for ablate_data_obj in ablate_data:
+        df_builder.add_ablate_fields(ablate_data_obj, args.fields)
+    if len(args.fields)>0:
+        raise RuntimeError('Missing requested fields from Ablate HDF5 file(s): ' + ', '.join(args.fields))
     print(df_builder)
-
-    # This requires manual code because it is not a "field"
-    coords = chrest_data.get_coordinates()
-    print(coords.shape)
-    df_builder.add_df_array(coords, columns=['x','y','z'])
     df = df_builder.df
 
-    groups = make_groups(df, n = args.n_cubes_per_dim)
-    df['group'] = groups
+    dim_names=['x','y','z']
+    groups = make_groups(df, n = args.n_cubes_per_dim, dims=dim_names)
+    df_builder.add_df_array(groups, columns=['group'], coords=df[dim_names])
+    df = df_builder.df # optinal, worth it?
+    #df['group'] = groups
     if args.plot: plot_cell_groups(df)
-    df.to_csv(f"{os.path.dirname(args.file)}/chrest_data.csv.gz", index=False)
+    
+    df.to_csv(f"{os.path.splitext(args.files[0])[0]}.csv.gz", index=False)
