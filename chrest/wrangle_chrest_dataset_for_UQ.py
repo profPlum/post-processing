@@ -129,6 +129,9 @@ def make_groups(df, n=100, dims = ['x','y','z']):
 # Monkey Patch to Fix Matt's code locally
 def AblateData_factory(files):
     from ablateData import AblateData
+    if isinstance(files, str): files=[files]
+    for fn in args.files:
+        assert os.path.exists(fn), f"The provided Ablate HDF5 file path doesn't exist: {fn}"
     ablate_data = AblateData(files)
     if len(ablate_data.vertices)==1:
         ablate_data.vertices=ablate_data.vertices.reshape(-1,1)
@@ -147,6 +150,8 @@ if __name__=='__main__':
                         help='number of cubes touching each axis of super-cell grid array')
     parser.add_argument('--plot', action='store_true', help='whether to plot the cell groups')
     args = parser.parse_args()
+    #for fn in args.files:
+    #    assert os.path.exists(fn), f"The provided Ablate HDF5 file path doesn't exist: {fn}"
     print('fields: ', args.fields)
     
     ablate_data = [AblateData_factory(fn) for fn in args.files]
