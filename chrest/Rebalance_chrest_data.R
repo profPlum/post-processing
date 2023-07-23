@@ -1,4 +1,6 @@
-library(tidyverse)
+library(readr)
+library(dplyr)
+#library(tidyr)
 
 #input_fn = '/Users/dwyerdeighan/CLionProjects/ablate/ablateInputs/chemTabDiffusionFlame/_1DSampleDiffusionFlame/flowField_mixtureFraction/flowField_mixtureFraction.00001.csv.gz'
 #input_fn = '/Users/dwyerdeighan/CLionProjects/ablate/ablateInputs/chemTabDiffusionFlame/_1DSampleChemTabDiffusionFlame/flowField_chemTab/flowField_chemTab.00122.csv.gz'
