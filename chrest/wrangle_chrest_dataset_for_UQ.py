@@ -56,7 +56,6 @@ class Array2DF_Builder:
                 continue
             assert (component_names is None) == (len(array.shape)==2)
             if component_names is None: # for 'single component cases'
-                #array = np.expand_dims(array, -1)
                 component_names = [alias]
             else:
                 component_names = [alias + col for col in component_names]
@@ -83,7 +82,7 @@ def plot_cell_groups(df):
     new_codes = np.arange(np.max(codes)+1)
     np.random.shuffle(new_codes)
 
-    df['group'] = new_codes[codes] #pd.Categorical(df['group']).codes # turn group codes into regular indices
+    df['group'] = new_codes[codes]
     import plotly.express as px
 
     fig = px.scatter_3d(df, x='x', y='y', z='z', color='group')
@@ -134,19 +133,6 @@ def AblateData_factory(files):
     if len(ablate_data.vertices)==1:
         ablate_data.vertices=ablate_data.vertices.reshape(-1,1)
     return ablate_data
-
-
-# def aggregate_AblateData_field_query(ablate_data: list, fields: list):
-#     if type(ablate_data) is not list:
-#         ablate_data = [ablate_data]
-#     dfs = {}
-#     for ablate_data_obj in ablate_data:
-#         df_builder = Array2DF_Builder()
-#         df_builder.add_fields(ablate_data_obj, fields)
-#         print(df_builder)
-#         dfs[ablate_data_obj] = df_builder.df
-#     master_df = None
-#     for key, df in dfs.items():
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='wrangle ablate data file by adding UQ groups (for cell coursening)')

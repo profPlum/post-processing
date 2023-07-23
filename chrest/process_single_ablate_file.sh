@@ -19,7 +19,7 @@ echo chrest_data: $chrest_data
 
 if [ -e "$final_output" ]; then 
     echo exiting, final output already exists
-    return 0 || exit 0
+    return 0 || exit 0 &> /dev/null
 fi
 echo proceeding! with input hdf5: $1
 
