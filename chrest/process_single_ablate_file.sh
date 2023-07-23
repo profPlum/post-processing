@@ -41,7 +41,7 @@ if [ $should_rebalance ]; then
     should_rebalance=--rebalance-flame
 fi
 
-python wrangle_chrest_dataset_for_UQ.py $should_rebalance --file "$1" "$domain_file" --fields $fields_list #--n-cubes-per-dim 25
+python wrangle_ablate_dataset_for_ChemTab.py $should_rebalance --file "$1" "$domain_file" --fields $fields_list #--n-cubes-per-dim 25
 
 echo input_fn: "$1"
 echo aux_fn: "$domain_file"
