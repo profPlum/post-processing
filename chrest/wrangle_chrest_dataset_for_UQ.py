@@ -137,6 +137,7 @@ def AblateData_factory(files):
         ablate_data.vertices=ablate_data.vertices.reshape(-1,1)
     return ablate_data
 
+
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='wrangle ablate data file by adding UQ groups (for cell coursening)')
     parser.add_argument('--files', dest='files', type=str, required=True, nargs='+',
@@ -149,6 +150,7 @@ if __name__=='__main__':
     parser.add_argument('--n-cubes-per-dim', type=int, default=100, 
                         help='number of cubes touching each axis of super-cell grid array')
     parser.add_argument('--plot', action='store_true', help='whether to plot the cell groups')
+    parser.add_argument('--rebalance-flame', action='store_true', help='Whether to rebalance the data flame so that 50% is flame')
     args = parser.parse_args()
     #for fn in args.files:
     #    assert os.path.exists(fn), f"The provided Ablate HDF5 file path doesn't exist: {fn}"
@@ -169,8 +171,16 @@ if __name__=='__main__':
     dim_names=['x','y','z']
     groups = make_groups(df, n = args.n_cubes_per_dim, dims=dim_names)
     df_builder.add_df_array(groups, columns=['group'], coords=df[dim_names])
-    df = df_builder.df # optinal, worth it?
+    df = df_builder.df # optional, worth it?
     #df['group'] = groups
+
+    if args.rebalance_flame:
+        is_flame_predicate = lambda df: np.logical_and(df['temp']>=1900, df['YiO2']<0.8)
+        df['is_flame']=is_flame_predicate(df)
+        n_flame = df['is_flame'].sum()
+        df = df.groupby(['is_flame']).sample(n=n_flame) # down-sample air to match n_flame!
+        assert df['is_flame'].mean()==0.5, "Rebalancing Failed!"
+
     if args.plot: plot_cell_groups(df)
-    
+        
     df.to_csv(f"{os.path.splitext(args.files[0])[0]}.csv.gz", index=False)

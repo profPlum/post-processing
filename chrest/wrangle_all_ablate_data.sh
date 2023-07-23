@@ -1,7 +1,5 @@
 #!/bin/bash
 
-#source /user/dwyerdei/.bashrc
-
 #data_dir='/Users/dwyerdeighan/ClionProjects/ablate/ablateInputs/chemtabDiffusionFlame/_1DSampleDiffusionFlame/flowField_mixtureFraction'
 #data_dir='/Users/dwyerdeighan/ClionProjects/ablate/ablateInputs/chemtabDiffusionFlame/_1DSampleChemTabDiffusionFlame/flowField_chemTab'
 #data_dir='/user/dwyerdei/data/ablate_data_processing/raw_ablate_data/flowField_mixtureFraction/'
@@ -19,6 +17,8 @@ fi
 
 process_ablate="$run_1task ./process_single_ablate_file.sh"
 
+# NOTE: much easier than a bash loop!! e.g.: map echo 1 2 3
+map() { cmd="$1"; shift; for x in "$@"; do eval "$cmd $x"; done }
 amap() { # asynchronous version of map!
     cmd="$1"; shift; for x in "$@"; do eval "$cmd $x" & done
 } # NOTE: we used to have the entire for-loop inside a sub-shell (i.e. inside parenthesis (for ... done)), why was this? Is it still important?
