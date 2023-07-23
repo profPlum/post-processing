@@ -37,13 +37,16 @@ fi
 base_1="$(basename $1)"
 echo base_1: ${base_1#*.}
 domain_file="$(dirname $1)/../domain/domain.${base_1#*.}"
-python wrangle_chrest_dataset_for_UQ.py --file "$1" "$domain_file" --fields $fields_list
-#python wrangle_chrest_dataset_for_UQ.py --file "$domain_file" --fields aux_temperature:temp
+if [ $should_rebalance ]; then
+    should_rebalance=--rebalance-flame
+fi
+
+python wrangle_chrest_dataset_for_UQ.py $should_rebalance --file "$1" "$domain_file" --fields $fields_list #--n-cubes-per-dim 25
 
 echo input_fn: "$1"
 echo aux_fn: "$domain_file"
 
-if [ $should_rebalance ]; then
-    Rscript Rebalance_chrest_data.R "$intermediate_csv" #"$domain_file"
-    rm "$intermediate_csv"
-fi
+#if [ $should_rebalance ]; then
+#    Rscript Rebalance_chrest_data.R "$intermediate_csv" #"$domain_file"
+#    rm "$intermediate_csv"
+#fi

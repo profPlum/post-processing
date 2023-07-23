@@ -5,6 +5,11 @@
 #data_dir='/user/dwyerdei/data/ablate_data_processing/raw_ablate_data/flowField_mixtureFraction/'
 #data_dir='/Volumes/UB_CHREST/v2-560x80x80-768/flowField_mixtureFraction/'
 
+if ! [ $data_dir ]; then
+    echo Error: env var "data_dir" is unspecified! Please provide it.
+    return 1 || exit 1
+fi
+
 chemtab_output="$(echo $data_dir | grep -i -e '.*chemTab$')"
 export chemtab_output # so we have access inside process_single_ablate_file.sh
 

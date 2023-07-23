@@ -137,9 +137,34 @@ def AblateData_factory(files):
         ablate_data.vertices=ablate_data.vertices.reshape(-1,1)
     return ablate_data
 
+# verified to work 7/23/23
+def rebalance_flame(df, replace=False):
+    """ 
+    rebalances flame so that at least 50% of the data is flame! 
+    :param replace: if true will do replacement sampling to ensure the balance is exactly 50% (if necessary will create duplicates of air)
+    """
+    import pdb; pdb.set_trace()
+    is_flame_predicate = lambda df: np.logical_and(df['temp']>=1900, df['YiO2']<0.8)
+ 
+    df_groups = df.groupby(['group']).median()
+    df_groups['is_flame'] = is_flame_predicate(df_groups)
+    df_groups= df_groups[['is_flame']]
+    n_flame = df_groups['is_flame'].sum()
+    #if n_flame < len(df_groups)//2:
+    try: # down-sample air to match n_flame!
+        df_groups = df_groups.groupby(['is_flame']).sample(n=n_flame, replace=replace).reset_index().set_index('group')
+    except: None # will throw error when n_flame > n_air & replace=False
+
+    df = df.set_index('group').join(df_groups, how='inner').reset_index()
+
+    assert df['is_flame'].mean()>=0.5, "Rebalancing Failed!"
+    if replace: assert df['is_flame'].mean()==0.5, "Rebalancing Failed!"
+    return df
+
 
 if __name__=='__main__':
-    parser = argparse.ArgumentParser(description='wrangle ablate data file by adding UQ groups (for cell coursening)')
+    parser = argparse.ArgumentParser(description='wrangle ablate data file by converting to csv.gz, collating multiple HDF5 files,'
+                                    'adding UQ groups (for cell coursening), possibly rebalance based on flame.')
     parser.add_argument('--files', dest='files', type=str, required=True, nargs='+',
                         help='The path to the ablate hdf5 files containing the ablate data.'
                         'files beyond the first are only used when field cannot be found in first file')
@@ -174,13 +199,12 @@ if __name__=='__main__':
     df = df_builder.df # optional, worth it?
     #df['group'] = groups
 
+    rebalanced_str=''
     if args.rebalance_flame:
-        is_flame_predicate = lambda df: np.logical_and(df['temp']>=1900, df['YiO2']<0.8)
-        df['is_flame']=is_flame_predicate(df)
-        n_flame = df['is_flame'].sum()
-        df = df.groupby(['is_flame']).sample(n=n_flame) # down-sample air to match n_flame!
-        assert df['is_flame'].mean()==0.5, "Rebalancing Failed!"
+        df = rebalance_flame(df)
+        rebalanced_str = '-rebalanced'
 
     if args.plot: plot_cell_groups(df)
         
-    df.to_csv(f"{os.path.splitext(args.files[0])[0]}.csv.gz", index=False)
+    df.to_csv(f"{os.path.splitext(args.files[0])[0]}{rebalanced_str}.csv.gz", index=False)
+
