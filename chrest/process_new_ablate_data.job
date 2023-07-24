@@ -15,5 +15,6 @@
 
 source ~/.bashrc
 conda activate
-data_dir=~/data/_1DSampleDiffusionFlame/flowField_mixtureFraction
+export data_dir=~/data/_1DSampleDiffusionFlame/flowField_mixtureFraction
+export should_rebalance=T
 . wrangle_all_ablate_data.sh

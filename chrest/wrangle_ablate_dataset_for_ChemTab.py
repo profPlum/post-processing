@@ -143,7 +143,6 @@ def rebalance_flame(df, replace=False):
     rebalances flame so that at least 50% of the data is flame! 
     :param replace: if true will do replacement sampling to ensure the balance is exactly 50% (if necessary will create duplicates of air)
     """
-    import pdb; pdb.set_trace()
     is_flame_predicate = lambda df: np.logical_and(df['temp']>=1900, df['YiO2']<0.8)
  
     df_groups = df.groupby(['group']).median()
