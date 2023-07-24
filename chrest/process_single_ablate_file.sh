@@ -11,11 +11,10 @@ intermediate_csv="$final_output"
 
 #final_output="$intermediate_csv"
 if [ $should_rebalance ]; then
-    final_output="${final_output%%.*}-rebalanced.csv.gz"
+    final_output="${1%.*}-rebalanced.csv.gz"
 fi
 
 echo final_output: $final_output
-echo chrest_data: $chrest_data
 
 if [ -e "$final_output" ]; then 
     echo exiting, final output already exists
@@ -39,7 +38,6 @@ echo base_1: ${base_1#*.}
 domain_file="$(dirname $1)/../domain/domain.${base_1#*.}"
 if [ $should_rebalance ]; then
     should_rebalance=--rebalance-flame
-    rm "$intermediate_csv"
 fi
 
 python wrangle_ablate_dataset_for_ChemTab.py $should_rebalance --file "$1" "$domain_file" --fields $fields_list #--n-cubes-per-dim 25
