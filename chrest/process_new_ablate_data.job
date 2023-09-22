@@ -15,6 +15,17 @@
 
 source ~/.bashrc
 conda activate
-export data_dir=~/data/_1DSampleDiffusionFlame/flowField_mixtureFraction
+
+#export data_dir=~/data/_1DSampleDiffusionFlame/flowField_mixtureFraction
+#export data_dir=~/ClionProjects/ablate/ablateInputs/chemtabDiffusionFlame/_1DSampleDiffusionFlame/flowField_mixtureFraction
+export data_dir=~/ClionProjects/ablate/ablateInputs/chemtabDiffusionFlame/_1DSampleChemTabDiffusionFlame/flowField_chemTab
 export should_rebalance=T
+post_glob="*.?????.csv.gz"
+[ $should_rebalance ] && post_glob="*-rebalanced.csv.gz"
+
+# optionally remove all previous files (e.g. if they are defective/outdated)
+rm $data_dir/$post_glob
+
 . wrangle_all_ablate_data.sh
+
+Rscript Collate_Ablate_Data.R $data_dir/$post_glob

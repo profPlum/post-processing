@@ -10,6 +10,8 @@ class Array2DF_Builder:
 
     def add_df_array(self, df_array, columns, coords):
         """assumes same shape as other arrays & that last dimensions is the "columns" dimension """
+        if type(columns) is str: columns=[columns]
+
         # order='C' means last index changes fastest for reading/writing of arrays: 
         # https://numpy.org/doc/stable/reference/generated/numpy.reshape.html#numpy.reshape
         # this is exactly what we want (since last dimension is the components dimension)
@@ -181,6 +183,10 @@ if __name__=='__main__':
     print('fields: ', args.fields)
     
     ablate_data = [AblateData_factory(fn) for fn in args.files]
+    sanity_predicate = lambda data: abs(data.times[0]-ablate_data[0].times[0])<1e-7 and len(data.times)==1
+    assert all([sanity_predicate(data) for data in ablate_data])
+    # assuming we aren't using Matt's time feature (i.e. only 1 time for ablate_data),
+    # this ensures the times match (they always should)
 
     #n_dims = ablate_data.vertices.shape[1]
     
@@ -194,9 +200,10 @@ if __name__=='__main__':
 
     dim_names=['x','y','z']
     groups = make_groups(df, n = args.n_cubes_per_dim, dims=dim_names)
-    df_builder.add_df_array(groups, columns=['group'], coords=df[dim_names])
-    df = df_builder.df # optional, worth it?
-    #df['group'] = groups
+    df_builder.add_df_array(groups, columns='group', coords=df[dim_names])
+    df = df_builder.df
+    df['time']=ablate_data[0].times[0] 
+    # this is fine b/c we process one 1 time-step at once (so time is constant)
 
     rebalanced_str=''
     if args.rebalance_flame:
