@@ -13,18 +13,23 @@
 #SBATCH --ntasks-per-node=30
 #SBATCH --time=00:20:00
 
-source ~/.bashrc
+source ~/.bash_profile
 conda activate
 
 #export data_dir=~/data/_1DSampleDiffusionFlame/flowField_mixtureFraction
 #export data_dir=~/ClionProjects/ablate/ablateInputs/chemtabDiffusionFlame/_1DSampleDiffusionFlame/flowField_mixtureFraction
-export data_dir=~/ClionProjects/ablate/ablateInputs/chemtabDiffusionFlame/_1DSampleChemTabDiffusionFlame/flowField_chemTab
-export should_rebalance=T
-post_glob="*.?????.csv.gz"
-[ $should_rebalance ] && post_glob="*-rebalanced.csv.gz"
+#export data_dir=~/ClionProjects/ablate/ablateInputs/chemtabDiffusionFlame/_1DSampleChemTabDiffusionFlame/flowField_chemTab
 
-# optionally remove all previous files (e.g. if they are defective/outdated)
-rm $data_dir/$post_glob
+# a little automation to select most recent simulation run!
+data_dir=~/ClionProjects/ablate/ablateInputs/chemtabDiffusionFlame/_1DSampleChemTabDiffusionFlame_*/flowField_chemTab
+export data_dir=$(echo $data_dir | tr ' ' '\n' | sort | tail -n 1)
+echo data_dir=$data_dir
+
+export should_rebalance=0
+#export should_rebalance=1
+post_glob="*.?????.csv.gz"
+((should_rebalance)) && post_glob="*-rebalanced.csv.gz"
+#rm $data_dir/$post_glob # optionally remove all previous files (e.g. if they are defective/outdated)
 
 . wrangle_all_ablate_data.sh
 
