@@ -54,7 +54,8 @@ class Array2DF_Builder:
             try: 
                 array, times, component_names = ablate_data.get_field(ablate_field, 0)
             except Exception as e:
-                print('error! skipping: ', e)
+                assert f'Unable to open field {ablate_field}' in str(e), 'maybe caught wrong exception?'
+                print('Caught: ', e, f'\nCan\'t find {ablate_field} in current dataset, skipping... ')
                 continue
             assert (component_names is None) == (len(array.shape)==2)
             if component_names is None: # for 'single component cases'

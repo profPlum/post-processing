@@ -22,7 +22,6 @@ alias xargs="xargs -n1 -P$(getconf _NPROCESSORS_ONLN)"
 files=("$data_dir/"*.hdf5)
 echo all files: ${files[*]}
 echo num files: ${#files[*]}
-echo "${files[*]}" | xargs -n1 -P$(getconf _NPROCESSORS_ONLN) $process_ablate #$run_1task ./process_single_ablate_file.sh
-#echo "${files[*]}" | xargs -n1 -P1 $process_ablate #$run_1task ./process_single_ablate_file.sh
+echo "${files[*]}" | xargs -n1 -P$(getconf _NPROCESSORS_ONLN) $process_ablate
 wait
 echo job done sub-sub!!
