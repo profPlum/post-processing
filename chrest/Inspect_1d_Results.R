@@ -5,8 +5,9 @@ source('~/.RProfile')
 #TC_fn = '~/Downloads/Data/Identity_CPV_data/TChem+CPVs+Zmix.csv.gz'
 #CT_fn <- 'CTV2-R2-10CPV_collated.csv.gz'
 
-TC_fn = '~/Downloads/Data/10_CPV_data/TChem+CPVs+Zmix_MassR2.csv.gz'
-CT_fn <- 'CTV2-MAE-10CPV_collated.csv.gz'
+TC_fn = '~/Downloads/Data/5_CPV_data/TChem+CPVs+Zmix_MassR2.csv.gz'
+CT_fn <- 'CTV2-MAE-5CPV_collated-long.csv.gz'
+weights_fn <- '~/CLionProjects/ablate/ablateInputs/chemTabDiffusionFlame/CTV2_MAE_5CPVs/weights.csv'
 
 setwd('/Users/dwyerdeighan/Desktop/post-processing/chrest')
 
@@ -19,47 +20,7 @@ summary(Zmix_lm)
 CT_df$zmix=predict(Zmix_lm, CT_df)
 stopifnot(ncol(CT_df)==ncol(TC_df))
 
-#################### Investigate L1 Constraint ####################
-
-# weights_fn <- '~/CLionProjects/ablate/ablateInputs/chemTabDiffusionFlame/CTV2_decomp_MAE_10CPVs/weights.csv'
-# weight_matrix = read.csv(weights_fn, row.names=1) %>% as.matrix()
-# TC_Yi_matrix = TC_df %>% select(starts_with('Yi')) %>% as.matrix()
-# CT_Yi_matrix = CT_df %>% select(starts_with('Yi')) %>% as.matrix()
-# CT_CPV_matrix = CT_df %>% select(starts_with('CPV')) %>% as.matrix()
-# CT_constrained_CPVs = CT_Yi_matrix%*%weight_matrix
-# CT_constrained_CPVs2 = (CT_Yi_matrix/apply(CT_Yi_matrix, -2, norm, type='2'))%*%weight_matrix
-# 
-# CT_constrained_residuals = abs(CT_CPV_matrix-CT_constrained_CPVs)/abs(CT_constrained_CPVs)
-# image(CT_constrained_residuals, main='constrained_residuals')
-# image(CT_constrained_CPVs, main='constrained_CPVs')
-# image(CT_CPV_matrix, main='CPV_matrix')
-# View(CT_CPV_matrix)
-# View(CT_constrained_CPVs)
-# 
-# Yi_l2=apply(CT_Yi_matrix**2, -2, sum)**0.5
-# CPV_l2 = apply(CT_CPV_matrix, -2, norm, type='2')
-# m=lm(Yi_l2~., as_tibble(CT_CPV_matrix))
-# summary(m)
-# (sanity = sweep(head(abs(CT_constrained_CPVs)), 1, head(Yi_l2), FUN='<='))
-# apply(head(abs(CT_constrained_CPVs)), 2, head(Yi_l2), FUN='<=')
-# sanity <- abs(CT_constrained_CPVs)<=Yi_l2
-# stopifnot(all(sanity))
-# stopifnot(all(apply(CT_constrained_CPVs[,-1], -2, norm, type='2')<=Yi_l2))
-# # this one is also implied by our proof
-# 
-# apply(CT_constrained_CPVs2[,-1], -2, norm, type='2')
-# 
-# # SUPER INTERESTING! LOOK INTO THIS MORE!!
-# hist(apply(CT_constrained_CPVs[,-1], -2, norm, type='2')<=Yi_l2)
-#
-# # Illustration of Difference between MARGIN in apply & sweep
-# (A = matrix(1:9, 3))
-# (B=sweep(A, MARGIN=1, 1:3, FUN='-'))
-# (C=apply(A, MARGIN=2, 1:3, FUN='-'))
-# stopifnot(all(B==C)) 
-# # ^ no error they are equal!
-
-#####################################################################
+####################### Make Master DF & Post-Process #########################
 
 TC_df$sim_type='TChem'
 CT_df$sim_type='ChemTab'
@@ -73,6 +34,53 @@ print(colnames(master_df))
 
 #lm(log(abs(souener)+1)~.+.**2, data=cbind(souener=TC_df$souener,lm_df)) %>% summary()
 
+########################## Investigate L1 Constraint ##########################
+
+weight_matrix = read.csv(weights_fn, row.names=1) %>% as.matrix()
+TC_Yi_matrix = TC_df %>% select(starts_with('Yi')) %>% as.matrix()
+CT_Yi_matrix = CT_df %>% select(starts_with('Yi')) %>% as.matrix()
+CT_CPV_matrix = CT_df %>% select(starts_with('CPV')) %>% as.matrix()
+CT_constrained_CPVs = CT_Yi_matrix%*%weight_matrix
+CT_constrained_CPVs_unity_L2 = (CT_Yi_matrix/apply(CT_Yi_matrix, -2, norm, type='2'))%*%weight_matrix
+
+mean(apply(CT_Yi_matrix, -2, norm, type='2'))
+
+CT_constrained_residuals = abs(CT_CPV_matrix-CT_constrained_CPVs)/abs(CT_constrained_CPVs)
+image(CT_constrained_residuals, main='constrained_residuals')
+image(CT_constrained_CPVs, main='constrained_CPVs')
+image(CT_CPV_matrix, main='CPV_matrix')
+View(CT_CPV_matrix)
+View(CT_constrained_CPVs)
+
+(Yi_l2 = apply(CT_Yi_matrix, -2, norm, type='1'))
+cat('head(Yi_l2):', head(Yi_l2))
+(CPV_l2 = apply(CT_CPV_matrix, -2, norm, type='1'))
+m=lm(Yi_l2~., as_tibble(CT_CPV_matrix))
+summary(m)
+sanity <- abs(CT_constrained_CPVs)<=Yi_l2
+stopifnot(all(sanity))
+stopifnot(all(apply(CT_constrained_CPVs[,-1], -2, norm, type='2')<=Yi_l2))
+# this one is also implied by our proof
+
+CT_constrained_CPVs_unity_L2 %>% apply(-1, sd)
+CT_constrained_CPVs %>% apply(-1, sd)
+
+(sanity1 = sweep(head(abs(CT_constrained_CPVs)), 1, head(Yi_l2), FUN='<='))
+(sanity2 = apply(head(abs(CT_constrained_CPVs)), 2, head(Yi_l2), FUN='<=')) # == sanity!
+stopifnot(all(head(sanity)==sanity1) && all(head(sanity)==sanity2))
+
+# SUPER INTERESTING! LOOK INTO THIS MORE!!
+CT_constrained_CPVs_unity_L2_norm = CT_constrained_CPVs_unity_L2[,-1] %>%
+  apply(-2, norm, type='2')
+hist(CT_constrained_CPVs_unity_L2_norm)
+
+# # Illustration of Difference between MARGIN in apply & sweep
+# (A = matrix(1:9, 3))
+# (B=sweep(A, MARGIN=1, 1:3, FUN='-'))
+# (C=apply(A, MARGIN=2, 1:3, FUN='-'))
+# stopifnot(all(B==C))
+# # ^ no error they are equal!
+
 ############################ Plotting Functions ############################
 
 start_plot = function(QOI, .time_key=2) master_df %>% filter(time_key==.time_key) %>%
@@ -82,15 +90,17 @@ start_plot = function(QOI, .time_key=2) master_df %>% filter(time_key==.time_key
 qq_on_col = function(col) qqplot(TC_df[[col]], CT_df[[col]], main=paste0('QOI: ', col, ', QQ-plot'),
                                  xlab=paste0('TChem_', col), ylab=paste0('Chemtab_', col))
 
+.default_aplha=0.3
+
 QOI_2d_heatmap=function(df, QOI) {
-  p = ggplot(df, aes(x=x, y=time)) + geom_point(aes(color=!!QOI), alpha=0.1) +
+  p = ggplot(df, aes(x=x, y=time)) + geom_point(aes(color=!!QOI), alpha=.default_aplha) +
     ggtitle(paste0('QOI: ', as_label(QOI), ', X-pos vs Time, heatmap for 1d Sim')) +
     facet_wrap(~sim_type)
   print(p)
 }
 
 QOI_2d_heatmap(master_df, quo(temp))
-
+QOI_2d_heatmap(master_df, quo(souener))
 
 # TODO: have times match exactly using either field function or similar
 # NOTE: positive residual=overshoot, negative undershoot approx
@@ -114,7 +124,7 @@ residual_2d_heatmap = function(df, QOI, relative=F, max_residual=100.0,
   }
   df = df %>% filter(sim_type=='ChemTab' & (1:n()<=length(residual))) %>%
     select(x, time) %>% mutate(residual=residual)
-  p = ggplot(df, aes(x=x, y=time)) + geom_point(aes(color=residual), alpha=0.1) +
+  p = ggplot(df, aes(x=x, y=time)) + geom_point(aes(color=residual), alpha=.default_aplha) +
     ggtitle(paste0(prefix, 'Residual: ', as_label(QOI), ', X-pos vs Time, heatmap for 1d Sim'))
   print(p)
 }
@@ -135,10 +145,11 @@ bulk_QOI_plots = function(QOIs, qq_plots=T, residual_plots=T, start_plots=T) {
 
 QOIs_Yi = c('zmix', 'YiO2', 'YiCO', 'YiCO2', 'YiH2O', 'YiOH', 'YiH2', 'YiCH4')
 QOIs=c('souener', 'temp', QOIs_Yi)
-#(QOIs_CPV=paste0('CPV_', 1:9)) # this makes too many assumptions for identity CPV case!
 (QOIs_CPV = master_df %>% select(starts_with('CPV')) %>% summarise_all(sd) %>% 
-  as_vector() %>% sort(decreasing=T) %>% .[1:9] %>% names())
+  as_vector() %>% sort(decreasing=T) %>% head(n=10) %>% names())
 (QOIs_CPV_source=sub('CPV_', 'dCPV_', QOIs_CPV))
+
+QOIs %>% walk(qq_on_col)
 
 # # TODO: choose which QOIs & which plots to use
 # bulk_QOI_plots(QOIs)
@@ -146,10 +157,11 @@ QOIs=c('souener', 'temp', QOIs_Yi)
 # bulk_QOI_plots(QOIs_CPV_source)
 
 # These are very important plots & summarize the gist of how well the model is doing!
-master_df %>% mutate(souener_log=log(souener-min(souener))) %>% QOI_2d_heatmap(quo(souener_log))
-master_df %>% mutate(temp_log=log(temp-min(temp))) %>% QOI_2d_heatmap(quo(temp_log))
+master_df %>% mutate(souener_log=log(souener-min(souener)+1)) %>% QOI_2d_heatmap(quo(souener_log))
+master_df %>% mutate(temp_log=log(temp-min(temp)+1)) %>% QOI_2d_heatmap(quo(temp_log))
 
-master_df %>% residual_2d_heatmap(quo(souener), relative=T)
+master_df %>% residual_2d_heatmap(quo(souener), relative=F)
+master_df %>% residual_2d_heatmap(quo(temp), relative=F)
 
 dCPV_TC = TC_df %>% select(starts_with('dCPV'))
 dCPV_CT = CT_df %>% select(starts_with('dCPV'))
@@ -170,7 +182,7 @@ agg_QOI_2d_heatmap = function(QOIs, rank=T, title='QOI Heatmap Comparison') {
   print(summary(plot_data))
   
   # (Inspired) from here: https://stackoverflow.com/questions/68583872/q-q-plot-facet-wrap-with-qq-line-in-r
-  ggplot(plot_data, aes(x=x,y=time)) + geom_point(aes(color=value), alpha=0.1) +
+  ggplot(plot_data, aes(x=x,y=time)) + geom_point(aes(color=value), alpha=.default_aplha) +
     theme(axis.text.x=element_text(angle=45)) + facet_grid(sim_type~name) + 
     ggtitle(title) + labs(color=ifelse(rank, 'value (ordinal)', 'value'))
 }
@@ -180,9 +192,9 @@ agg_QOI_2d_heatmap(QOIs_Yi, title='Yi Comparison', rank=F)
 agg_QOI_2d_heatmap(QOIs_CPV, title='CPV Comparison', rank=F)
 agg_QOI_2d_heatmap(QOIs_CPV_source, title='CPV_source Comparison', rank=T)
 
-# parallel coordinate plots, interesting & useful for high-dim data!
-CT_df %>% select(starts_with('Yi'), zmix, time) %>% head(n=5000) %>% parallel_coordinate_response(quo(time), title='Chemtab', scale=F)
-TC_df %>% select(starts_with('Yi'), zmix, time) %>% head(n=5000) %>% parallel_coordinate_response(quo(time), title='TChem', scale=F)
+# # parallel coordinate plots, interesting & useful for high-dim data!
+# CT_df %>% select(starts_with('Yi'), zmix, time) %>% head(n=5000) %>% parallel_coordinate_response(quo(time), title='Chemtab', scale=F)
+# TC_df %>% select(starts_with('Yi'), zmix, time) %>% head(n=5000) %>% parallel_coordinate_response(quo(time), title='TChem', scale=F)
 
 ################# LOESS does exactly the kind of time/space interpolation you want!! #################
 
