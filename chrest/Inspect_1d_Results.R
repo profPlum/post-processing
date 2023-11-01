@@ -5,31 +5,36 @@ source('~/.RProfile')
 #TC_fn = '~/Downloads/Data/Identity_CPV_data/TChem+CPVs+Zmix.csv.gz'
 #CT_fn <- 'CTV2-R2-10CPV_collated.csv.gz'
 
-TC_fn = '~/Downloads/Data/5_CPV_data/TChem+CPVs+Zmix_MassR2.csv.gz'
-CT_fn <- 'CTV2-MAE-5CPV_collated-long.csv.gz'
+#TC_fn = '~/Downloads/Data/5_CPV_data/TChem+CPVs+Zmix_MassR2.csv.gz'
+TC_fn = 'ablate_dummy_batch.csv.gz'
+CT_fn <- 'ablate_control.csv.gz'
 weights_fn <- '~/CLionProjects/ablate/ablateInputs/chemTabDiffusionFlame/CTV2_MAE_5CPVs/weights.csv'
+sim_type_aliases=list(ctrl='Control', expr='Expr') # for easy comparison across different simulations
 
 setwd('/Users/dwyerdeighan/Desktop/post-processing/chrest')
 
 CT_df = read_csv(CT_fn) %>% arrange(time) %>% filter(time_key>1)
-TC_df = read_csv(TC_fn) %>% select(-...1, -starts_with('souspec')) %>%
+TC_df = read_csv(TC_fn) %>% select(-starts_with('souspec')) %>%
   arrange(time) %>% filter(time<=max(CT_df$time)&time_key>1)
-lm_df = TC_df %>% select(starts_with('Yi'), zmix)
-Zmix_lm = lm(zmix~.-YiN2-YiAR-YiNO-YiNO2-YiN-YiOH-YiH, data=lm_df)
-summary(Zmix_lm)
-CT_df$zmix=predict(Zmix_lm, CT_df)
+if ('...1' %in% colnames(TC_df)) TC_df = TC_df %>% select(-...1)
+if ('zmix' %in% colnames(TC_df)) {
+  lm_df = TC_df %>% select(starts_with('Yi'), zmix)
+  Zmix_lm = lm(zmix~.-YiN2-YiAR-YiNO-YiNO2-YiN-YiOH-YiH, data=lm_df)
+  summary(Zmix_lm)
+  CT_df$zmix=predict(Zmix_lm, CT_df)
+}
 stopifnot(ncol(CT_df)==ncol(TC_df))
 
 ####################### Make Master DF & Post-Process #########################
 
-TC_df$sim_type='TChem'
-CT_df$sim_type='ChemTab'
+TC_df$sim_type=sim_type_aliases$ctrl
+CT_df$sim_type=sim_type_aliases$expr
 master_df = CT_df %>% rbind(TC_df) %>% na.exclude() %>%
   mutate(sim_type=as_factor(sim_type)) %>% 
   rename_all(compose(~sub('_PC_', '_', .x), ~sub('mass_CPV', 'CPV', .x),
                      ~sub('source_CPV', 'dCPV', .x)))
-TC_df = master_df %>% filter(sim_type=='TChem')
-CT_df = master_df %>% filter(sim_type=='ChemTab')
+TC_df = master_df %>% filter(sim_type==sim_type_aliases$ctrl)
+CT_df = master_df %>% filter(sim_type==sim_type_aliases$expr)
 print(colnames(master_df))
 
 #lm(log(abs(souener)+1)~.+.**2, data=cbind(souener=TC_df$souener,lm_df)) %>% summary()
@@ -88,7 +93,7 @@ start_plot = function(QOI, .time_key=2) master_df %>% filter(time_key==.time_key
   print()
 
 qq_on_col = function(col) qqplot(TC_df[[col]], CT_df[[col]], main=paste0('QOI: ', col, ', QQ-plot'),
-                                 xlab=paste0('TChem_', col), ylab=paste0('Chemtab_', col))
+                                 xlab=paste0(sim_type_aliases$ctrl, '_', col), ylab=paste0(sim_type_aliases$expr,'_', col))
 
 .default_aplha=0.3
 
@@ -106,8 +111,8 @@ QOI_2d_heatmap(master_df, quo(souener))
 # NOTE: positive residual=overshoot, negative undershoot approx
 residual_2d_heatmap = function(df, QOI, relative=F, max_residual=100.0,
                                epsilon=1e-7) {
-  CT_QOI = df %>% filter(sim_type=='ChemTab') %>% select(!!QOI)
-  TC_QOI = df %>% filter(sim_type=='TChem') %>% select(!!QOI)
+  CT_QOI = df %>% filter(sim_type==sim_type_aliases$expr) %>% select(!!QOI)
+  TC_QOI = df %>% filter(sim_type==sim_type_aliases$ctrl) %>% select(!!QOI)
   
   # Truncate to equal size
   max_rows = pmin(nrow(CT_QOI), nrow(TC_QOI))
@@ -122,7 +127,7 @@ residual_2d_heatmap = function(df, QOI, relative=F, max_residual=100.0,
     residual = residual %>% pmin(max_residual) %>% pmax(-max_residual)
     print(summary(residual))
   }
-  df = df %>% filter(sim_type=='ChemTab' & (1:n()<=length(residual))) %>%
+  df = df %>% filter(sim_type==sim_type_aliases$expr & (1:n()<=length(residual))) %>%
     select(x, time) %>% mutate(residual=residual)
   p = ggplot(df, aes(x=x, y=time)) + geom_point(aes(color=residual), alpha=.default_aplha) +
     ggtitle(paste0(prefix, 'Residual: ', as_label(QOI), ', X-pos vs Time, heatmap for 1d Sim'))
@@ -143,15 +148,15 @@ bulk_QOI_plots = function(QOIs, qq_plots=T, residual_plots=T, start_plots=T) {
 
 ##########################################################################
 
-QOIs_Yi = c('zmix', 'YiO2', 'YiCO', 'YiCO2', 'YiH2O', 'YiOH', 'YiH2', 'YiCH4')
-QOIs=c('souener', 'temp', QOIs_Yi)
+QOIs_Yi = c('YiO2', 'YiCO', 'YiCO2', 'YiH2O', 'YiOH', 'YiH2', 'YiCH4')
+QOIs=c('zmix', 'souener', 'temp', QOIs_Yi)
+(QOIs = QOIs[QOIs %in% colnames(TC_df)])
 (QOIs_CPV = master_df %>% select(starts_with('CPV')) %>% summarise_all(sd) %>% 
   as_vector() %>% sort(decreasing=T) %>% head(n=10) %>% names())
 (QOIs_CPV_source=sub('CPV_', 'dCPV_', QOIs_CPV))
 
-QOIs %>% walk(qq_on_col)
-
 # # TODO: choose which QOIs & which plots to use
+# QOIs %>% walk(qq_on_col)
 # bulk_QOI_plots(QOIs)
 # bulk_QOI_plots(QOIs_CPV)
 # bulk_QOI_plots(QOIs_CPV_source)
@@ -193,8 +198,8 @@ agg_QOI_2d_heatmap(QOIs_CPV, title='CPV Comparison', rank=F)
 agg_QOI_2d_heatmap(QOIs_CPV_source, title='CPV_source Comparison', rank=T)
 
 # # parallel coordinate plots, interesting & useful for high-dim data!
-# CT_df %>% select(starts_with('Yi'), zmix, time) %>% head(n=5000) %>% parallel_coordinate_response(quo(time), title='Chemtab', scale=F)
-# TC_df %>% select(starts_with('Yi'), zmix, time) %>% head(n=5000) %>% parallel_coordinate_response(quo(time), title='TChem', scale=F)
+# CT_df %>% select(starts_with('Yi'), zmix, time) %>% head(n=5000) %>% parallel_coordinate_response(quo(time), title=sim_type_aliases$expr, scale=F)
+# TC_df %>% select(starts_with('Yi'), zmix, time) %>% head(n=5000) %>% parallel_coordinate_response(quo(time), title=sim_type_aliases$ctrl, scale=F)
 
 ################# LOESS does exactly the kind of time/space interpolation you want!! #################
 
@@ -223,10 +228,10 @@ predict.field_models = function(models, newdata) {
 
 prefix=''
 SDs = master_df %>% select(starts_with('Yi')) %>% summarise_all(sd) %>% as_vector() %>% sort() %>% .[-(1:5)]
-comp_data = master_df %>% select(starts_with('Yi')) %>% select(any_of(QOIs)) %>% #select_if(~sd(.x)>1e-7 & mean(.x)>0.01) %>%
+comp_data = master_df %>% arrange(time, x) %>% select(starts_with('Yi') & any_of(QOIs), time, x) %>% #select_if(~sd(.x)>1e-7 & mean(.x)>0.01) %>%
   mutate(sim_type=master_df$sim_type)
-mass_frac_data = comp_data %>% filter(sim_type=='TChem') %>% select(-sim_type)
-approximation = comp_data %>% filter(sim_type=='ChemTab') %>% select(-sim_type)
+mass_frac_data = comp_data %>% filter(sim_type==sim_type_aliases$ctrl) %>% select(-sim_type) %>% arrange(time, x)
+approximation = comp_data %>% filter(sim_type==sim_type_aliases$expr) %>% select(-sim_type) %>% arrange(time, x)
 ALL_MAPE = abs(approximation-(mass_frac_data+1e-8))/(mass_frac_data+1e-8)
 MAPE = apply(ALL_MAPE, -1, mean, na.rm=T)
 MSE = apply((approximation-mass_frac_data)**2, -1, mean)
