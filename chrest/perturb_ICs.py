@@ -157,9 +157,6 @@ class IC_Cfg:
         # dump modifications to new file
         with open(self.modified_IC_cfg_path, 'w') as f:
             f.write(self.IC_cfg)
-
-import sys
-sys.argv[1:] = ['sampleDiffusionFlame.yaml', '--width=0.2']
     
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description='Used to Perturb Ablate ICs from the sampleDiffusionFlame.yaml template.')
