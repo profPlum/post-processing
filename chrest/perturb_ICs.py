@@ -168,8 +168,7 @@ if __name__=='__main__':
     args=parser.parse_args()
 
     ic_cfg=IC_Cfg(args.IC_cfg_path)
-    if args.width:
-        ic_cfg.width=args.width # if we assign None (b/c width is unspecified), then it will make random perturbation of width
+    ic_cfg.width=args.width # if we assign None (b/c width is unspecified), then it will make random perturbation of width
 
     species = ic_cfg.get_nonzero_IC_species()
     print('Found IC species: ', {name: ic_cfg.get_one_species_IC(name) for name in species})
