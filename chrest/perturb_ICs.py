@@ -1,6 +1,6 @@
 import argparse
 import random
-import re
+import re, os
 import numpy as np
 
 # example 1
@@ -132,11 +132,13 @@ class IC_Cfg:
         self.constrain_species_L1(True)
         self.constrain_species_L1(False)
 
-        print('dumping perturbed cfg to: ', self.modified_IC_cfg_path)
+        print('dumping perturbed cfg to:', self.modified_IC_cfg_path, 'and to peturbed.new.yaml')
 
         # dump modifications to new file
         with open(self.modified_IC_cfg_path, 'w') as f:
             f.write(self.IC_cfg)
+        os.system(f'rm $(dirname {self.modified_IC_cfg_path})/peturbed.new.yaml 2> /dev/null')
+        os.system(f'ln -s {self.modified_IC_cfg_path} $(dirname {self.modified_IC_cfg_path})/peturbed.new.yaml')
     
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description='Used to Perturb Ablate ICs from the sampleDiffusionFlame.yaml template.')
