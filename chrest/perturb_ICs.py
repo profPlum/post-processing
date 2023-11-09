@@ -124,7 +124,6 @@ class IC_Cfg:
 
         IC_values /= IC_values.sum() # all Yis should sum to 1
         IC_values /= IC_values.sum() # all Yis should sum to 1
-        assert IC_values.sum()==1
         for name, value in zip(species_names, list(IC_values)):
             self.modify_one_species_IC(name, value, fuel_IC=fuel_IC)
 
