@@ -1,6 +1,6 @@
 import argparse
 import random
-import re
+import re, os
 import numpy as np
 
 # example 1
@@ -55,8 +55,8 @@ class IC_Cfg:
 
     @property
     def width(self):
-        width_pattern=r'upper: +[ *([0-9.E-]+) *]'
-        match=re.search(self.IC_cfg, width_pattern)
+        width_pattern=r'upper: +\[ *([0-9.E-]+) *\]'
+        match=re.search(width_pattern, self.IC_cfg)
         return float(match.group(1))
     
     @width.setter
@@ -157,6 +157,10 @@ class IC_Cfg:
         # dump modifications to new file
         with open(self.modified_IC_cfg_path, 'w') as f:
             f.write(self.IC_cfg)
+
+        print('dumping to {self.modified_IC_cfg_path} & perturbed.new.yaml')
+        os.system(f'rm $(dirname {self.modified_IC_cfg_path})/perturbed.new.yaml 2> /dev/null')
+        os.system(f'ln -s {self.modified_IC_cfg_path} $(dirname {self.modified_IC_cfg_path})/perturbed.new.yaml')
     
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description='Used to Perturb Ablate ICs from the sampleDiffusionFlame.yaml template.')
