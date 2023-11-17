@@ -3,48 +3,48 @@ source('~/.Rprofile')
 
 ########################## Helper Functions: ##########################
 
-# Everything is verified except whether it is ok to ignore bias: 8/2/22
-fit_linear_transform = function(X_df, Y_df) {
-  # verified to work 8/2/22 (checks that data frames are all numeric)
-  stopifnot(is.numeric(as.matrix(X_df)))
-  stopifnot(is.numeric(as.matrix(Y_df)))
-
-  rotation_matrix = NULL
-  for (j in 1:ncol(Y_df)) {
-    # TODO: verify that it is ok to ignore bias here?
-    model = lm(as.matrix(Y_df)[,j]~.-1, data=X_df) 
-  
-    print(summary(model))
-    rotation_matrix = cbind(rotation_matrix, coef(model))
-  }
-  colnames(rotation_matrix) = colnames(Y_df)
-  rownames(rotation_matrix) = gsub('`', '', rownames(rotation_matrix))
-
-  
-  # print R^2 of entire rotation matrix
-  R2 = 1-sum(apply((as.matrix(X_df)%*%rotation_matrix-Y_df)**2, -1, mean)/apply(Y_df, -1, var))
-  cat('R2 of linear transform fit: ', R2)
-
-  return(rotation_matrix)
-}
-
-glmnet_R2 = function(glmnet_cv_out, s='lambda.min') {
-  ids = list(lambda.min=glmnet_cv_out$index[[1]], lambda.1se=glmnet_cv_out$index[[2]])
-  R_Squared_train = glmnet_cv_out$glmnet.fit$dev.ratio[[ ids[[s]] ]]
-  return(R_Squared_train)
-}
-
-# returns coefs as named vector (like we expect)
-coef.cv.glmnet = function(cv, s='lambda.min', ...) {
-  lm_coefs_raw = glmnet::coef.glmnet(cv, s=s, ...)
-  lm_coefs = as.vector(lm_coefs_raw)
-  names(lm_coefs) = gsub('`', '', rownames(lm_coefs_raw))
-  return(lm_coefs)
-}
-
-glmnet=function(formula, data, ...) #TODO: figure out corresponding method for predict() which can reuse formula + new df flexibly
-  glmnet::cv.glmnet(as.matrix(model.matrix(formula, data=data)), y=data[[ all.vars(formula)[[1]] ]], intercept=F, ...)
-  # if user requests it intercept will implicitly be included by formula
+## Everything is verified except whether it is ok to ignore bias: 8/2/22
+#fit_linear_transform = function(X_df, Y_df) {
+#  # verified to work 8/2/22 (checks that data frames are all numeric)
+#  stopifnot(is.numeric(as.matrix(X_df)))
+#  stopifnot(is.numeric(as.matrix(Y_df)))
+#
+#  rotation_matrix = NULL
+#  for (j in 1:ncol(Y_df)) {
+#    # TODO: verify that it is ok to ignore bias here?
+#    model = lm(as.matrix(Y_df)[,j]~.-1, data=X_df) 
+#  
+#    print(summary(model))
+#    rotation_matrix = cbind(rotation_matrix, coef(model))
+#  }
+#  colnames(rotation_matrix) = colnames(Y_df)
+#  rownames(rotation_matrix) = gsub('`', '', rownames(rotation_matrix))
+#
+#  
+#  # print R^2 of entire rotation matrix
+#  R2 = 1-sum(apply((as.matrix(X_df)%*%rotation_matrix-Y_df)**2, -1, mean)/apply(Y_df, -1, var))
+#  cat('R2 of linear transform fit: ', R2)
+#
+#  return(rotation_matrix)
+#}
+#
+#glmnet_R2 = function(glmnet_cv_out, s='lambda.min') {
+#  ids = list(lambda.min=glmnet_cv_out$index[[1]], lambda.1se=glmnet_cv_out$index[[2]])
+#  R_Squared_train = glmnet_cv_out$glmnet.fit$dev.ratio[[ ids[[s]] ]]
+#  return(R_Squared_train)
+#}
+#
+## returns coefs as named vector (like we expect)
+#coef.cv.glmnet = function(cv, s='lambda.min', ...) {
+#  lm_coefs_raw = glmnet::coef.glmnet(cv, s=s, ...)
+#  lm_coefs = as.vector(lm_coefs_raw)
+#  names(lm_coefs) = gsub('`', '', rownames(lm_coefs_raw))
+#  return(lm_coefs)
+#}
+#
+#glmnet=function(formula, data, ...) #TODO: figure out corresponding method for predict() which can reuse formula + new df flexibly
+#  glmnet::cv.glmnet(as.matrix(model.matrix(formula, data=data)), y=data[[ all.vars(formula)[[1]] ]], intercept=F, ...)
+#  # if user requests it intercept will implicitly be included by formula
 
 # NOTE: you can pass lm=glm for glm type model! (glm doesn't show R^2 though...)
 fit_significant_lm = function(formula, data, significance_level=0.05,
@@ -81,9 +81,9 @@ n_PCs=as.integer(Sys.getenv()['N_CPVS'])
 if (is.na(n_PCs)) n_PCs = 25 # default is 25 which is more than enough, you can cut short by using regex pattern
 cat('N_CPVs: ', n_PCs, '(change via N_CPVS env var)\n')
 
-use_QR=as.logical(Sys.getenv()['QR'])
-if (is.na(use_QR)) use_QR=FALSE # the original motivation for QR should be irrelevant now...
-cat('QR: ', use_QR, '(change via QR=T/F env var)\n')
+#use_QR=as.logical(Sys.getenv()['QR'])
+#if (is.na(use_QR)) use_QR=FALSE # the original motivation for QR should be irrelevant now...
+#cat('QR: ', use_QR, '(change via QR=T/F env var)\n')
 
 Chemtab_fn = commandArgs(trailingOnly = T)[[1]]
 cat('Chemtab_fn: ', Chemtab_fn, '\n')
@@ -134,9 +134,8 @@ export_CPVs_and_rotation = function(use_QR=F) {
   variance_weighted=T # NOTE: ONLY variance weighted PCA makes sense...
   stopifnot(variance_weighted)
 
-  # Verified that removing centering doesn't effect reconstruction loss!! 9/21/23
-  # However removing scaling does indeed negatively effect it
-  # (unless we want to use mass variance weights...)
+  # Verified that removing centering doesn't effect reconstruction loss!! 9/21/23 (This should actually correspond to POD)
+  # However removing scaling does indeed negatively effect it (unless we want to use mass variance weights...)
   mass_PCA = prcomp(mass_frac_data, scale.=!variance_weighted, center=F, rank=n_PCs)
   #rotation=fit_linear_transform(mass_frac_data, mass_PCA$x)
   # NOTE: apparently using linear models here has a noticable decrease on R2 (though slight)
@@ -197,4 +196,5 @@ export_CPVs_and_rotation = function(use_QR=F) {
   ###############################################################################################
 }
 
-result=export_CPVs_and_rotation(use_QR=use_QR)
+result=export_CPVs_and_rotation(use_QR=T)
+result=export_CPVs_and_rotation(use_QR=F)
