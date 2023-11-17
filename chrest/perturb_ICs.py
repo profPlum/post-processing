@@ -183,3 +183,4 @@ if __name__=='__main__':
     for species_name, species_value in zip(species, args.IC_species_values):
         ic_cfg.modify_one_species_IC(species_name, species_value)
     del ic_cfg
+    os.system('mv _1DSampleDiffusionFlame _1DSampleDiffusionFlame.$RANDOM.bak')
