@@ -5,51 +5,52 @@ source('~/.RProfile')
 #CT_fn <- 'ablate_control.csv.gz'
 
 #TC_fn = '~/Downloads/Data/5_CPV_data/TChem+CPVs+Zmix_QR_MassR2.csv.gz'
-TC_fn = '~/Downloads/Data/10_CPV_data/TChem+CPVs+Zmix_QR_MassR2.csv.gz'
+ctrl_fn = '~/Downloads/Data/10_CPV_data/TChem+CPVs+Zmix_QR_MassR2.csv.gz'
 #TC_fn = '~/Downloads/Data/Identity_CPV_data/TChem+CPVs+Zmix_QR.csv.gz'
 
 #CT_fn <- 'CollatedDatasets/ZmixSource=0_NoQR_5CPVs_collated.csv.gz'
-CT_fn <- 'CollatedDatasets/ZmixSource=0_10CPVs_collated.csv.gz'
+#expr_fn <- 'CollatedDatasets/ZmixSource=0_10CPVs_collated.csv.gz'
+expr_fn <- 'CollatedDatasets/Perturbed_FW1_collated.csv.gz'
 #weights_fn <- '~/CLionProjects/ablate/ablateInputs/chemTabDiffusionFlame/CTV2_MAE_5CPVs/weights.csv'
-sim_type_aliases=list(ctrl='TChem', expr='ChemTab') # for easy comparison across different simulations
+sim_type_aliases=list(ctrl='TChem', expr='Perturbed') # for easy comparison across different simulations
 
 setwd('/Users/dwyerdeighan/Desktop/post-processing/chrest')
 
 # don't confuse zmix & mass_CPV_zmix, one is squashed to have normal lm coefficients
-CT_df = read_csv_cached(CT_fn) %>% arrange(time) %>% filter(time_key>1)
-TC_df = read_csv_cached(TC_fn) %>% select(-starts_with('souspec')) %>%
-  arrange(time) %>% filter(time<=max(CT_df$time)&time_key>1)
-if ('...1' %in% colnames(TC_df)) TC_df = TC_df %>% select(-...1)
-if ('zmix' %in% colnames(TC_df)) {
-  lm_df = TC_df %>% select(starts_with('Yi'), zmix)
+Expr_df = read_csv_cached(expr_fn) %>% arrange(time) %>% filter(time_key>1)
+Ctrl_df = read_csv_cached(ctrl_fn) %>% select(-starts_with('souspec')) %>%
+  arrange(time) %>% filter(time<=max(Expr_df$time)&time_key>1)
+if ('...1' %in% colnames(Ctrl_df)) Ctrl_df = Ctrl_df %>% select(-...1)
+if ('zmix' %in% colnames(Ctrl_df)) {
+  lm_df = Ctrl_df %>% select(starts_with('Yi'), zmix)
   Zmix_lm = lm(zmix~.-YiN2-YiAR-YiNO-YiNO2-YiN-YiOH-YiH-YiHO2, data=lm_df)
   print(summary(Zmix_lm))
   stopifnot(summary(Zmix_lm)$r.square.adj>0.999)
-  CT_df$zmix=predict(Zmix_lm, CT_df)
+  Expr_df$zmix=predict(Zmix_lm, Expr_df)
 }
-stopifnot(ncol(CT_df)==ncol(TC_df))
+stopifnot(ncol(Expr_df)==ncol(Ctrl_df))
 
 ####################### Make Master DF & Post-Process #########################
 
-TC_df$sim_type=sim_type_aliases$ctrl
-CT_df$sim_type=sim_type_aliases$expr
-master_df = CT_df %>% rbind(TC_df) %>% na.exclude() %>%
+Ctrl_df$sim_type=sim_type_aliases$ctrl
+Expr_df$sim_type=sim_type_aliases$expr
+master_df = Expr_df %>% rbind(Ctrl_df) %>% na.exclude() %>%
   mutate(sim_type=as_factor(sim_type)) %>% 
   rename_all(compose(~sub('_PC_', '_', .x), ~sub('mass_CPV', 'CPV', .x),
                      ~sub('source_CPV', 'dCPV', .x)))
-TC_df = master_df %>% filter(sim_type==sim_type_aliases$ctrl)
-CT_df = master_df %>% filter(sim_type==sim_type_aliases$expr)
+Ctrl_df = master_df %>% filter(sim_type==sim_type_aliases$ctrl)
+Expr_df = master_df %>% filter(sim_type==sim_type_aliases$expr)
 print(colnames(master_df))
 
-# lm(log(abs(souener)+1)~.+.**2, data=cbind(souener=TC_df$souener,lm_df)) %>% summary()
+# lm(log(abs(souener)+1)~.+.**2, data=cbind(souener=Ctrl_df$souener,lm_df)) %>% summary()
 
 # load('zmix_lm.RData')
-# start_TC <- TC_df %>% filter(time_key==2)
-# start_CT <- CT_df %>% filter(time_key==2)
+# start_TC <- Ctrl_df %>% filter(time_key==2)
+# start_CT <- Expr_df %>% filter(time_key==2)
 # TC_zmix_preds = predict(zmix_lm, newdata=start_TC)
 # CT_zmix_preds = predict(zmix_lm, newdata=start_CT)
-# stopifnot(R2(TC_df$zmix,TC_zmix_preds)>0.999)
-# qqplot(TC_zmix_preds, TC_df$zmix)
+# stopifnot(R2(Ctrl_df$zmix,TC_zmix_preds)>0.999)
+# qqplot(TC_zmix_preds, Ctrl_df$zmix)
 # plot(start_TC$zmix, TC_zmix_preds)
 # plot(start_TC$zmix)
 # plot(TC_zmix_preds)
@@ -61,7 +62,7 @@ start_plot = function(QOI, .time_key=2) master_df %>% filter(time_key==.time_key
   qplot(x, !!QOI, data=., color=sim_type, main=paste0('start_plot: ', as_label(QOI), ' time_key=', .time_key)) %>%
   print()
 
-qq_on_col = function(col) qqplot(TC_df[[col]], CT_df[[col]], main=paste0('QOI: ', col, ', QQ-plot'),
+qq_on_col = function(col) qqplot(Ctrl_df[[col]], Expr_df[[col]], main=paste0('QOI: ', col, ', QQ-plot'),
                                  xlab=paste0(sim_type_aliases$ctrl, '_', col), ylab=paste0(sim_type_aliases$expr,'_', col))
 
 .default_aplha=0.3
@@ -76,19 +77,19 @@ QOI_2d_heatmap=function(df, QOI, alpha=.default_aplha) {
 # TODO: have times match exactly using either field function or similar
 # NOTE: positive residual=overshoot, negative undershoot approx
 residual_2d_heatmap = function(df, QOI, relative=F, max_residual=100.0, epsilon=1e-7) {
-  CT_QOI = df %>% filter(sim_type==sim_type_aliases$expr) %>% select(!!QOI)
-  TC_QOI = df %>% filter(sim_type==sim_type_aliases$ctrl) %>% select(!!QOI)
+  Expr_QOI = df %>% filter(sim_type==sim_type_aliases$expr) %>% select(!!QOI)
+  Ctrl_QOI = df %>% filter(sim_type==sim_type_aliases$ctrl) %>% select(!!QOI)
   
   # Truncate to equal size
-  max_rows = pmin(nrow(CT_QOI), nrow(TC_QOI))
-  CT_QOI = CT_QOI[1:max_rows,]
-  TC_QOI = TC_QOI[1:max_rows,]
+  max_rows = pmin(nrow(Expr_QOI), nrow(Ctrl_QOI))
+  Expr_QOI = Expr_QOI[1:max_rows,]
+  Ctrl_QOI = Ctrl_QOI[1:max_rows,]
   
   prefix=''
-  residual = (CT_QOI-TC_QOI) %>% as_vector()
+  residual = (Expr_QOI-Ctrl_QOI) %>% as_vector()
   if (relative) {
     prefix='(Relative) '
-    residual = (residual/pmax(as_vector(abs(TC_QOI)), epsilon)) %>% na.exclude() %>% abs()
+    residual = (residual/pmax(as_vector(abs(Ctrl_QOI)), epsilon)) %>% na.exclude() %>% abs()
     residual = residual %>% pmin(max_residual) %>% pmax(-max_residual)
     print(summary(residual))
   }
@@ -115,7 +116,7 @@ bulk_QOI_plots = function(QOIs, qq_plots=T, residual_plots=T, start_plots=T) {
 
 QOIs_Yi = c('YiC2H4', 'YiO2', 'YiCO', 'YiCO2', 'YiH2O', 'YiOH', 'YiH2', 'YiCH4')
 QOIs=c('zmix', 'souener', 'temp', QOIs_Yi)
-(QOIs = QOIs[QOIs %in% colnames(TC_df)])
+(QOIs = QOIs[QOIs %in% colnames(Ctrl_df)])
 (QOIs_CPV = master_df %>% select(starts_with('CPV')) %>% summarise_all(sd) %>% 
   as_vector() %>% sort(decreasing=T) %>% head(n=10) %>% names())
 (QOIs_CPV_source=sub('CPV_', 'dCPV_', QOIs_CPV))
@@ -133,12 +134,11 @@ qq_on_col('temp')
 
 # look at start plot values to find divergence point
 QOIs %>% syms %>% map(start_plot)
-start_plot(quo(zmix))
 
 # These are very important plots & summarize the gist of how well the model is doing!
-master_df %>% filter(time<1e-5) %>% mutate(souener_log=log(souener-min(souener)+1)) %>%
+master_df %>% filter(time<2.5e-6) %>% mutate(souener_log=log(souener-min(souener)+1)) %>%
   QOI_2d_heatmap(quo(souener_log))
-master_df %>% filter(time<4e-5) %>% mutate(temp_log=log(temp-min(temp)+1)) %>%
+master_df %>% filter(time<2.5e-6) %>% mutate(temp_log=log(temp-min(temp)+1)) %>%
   QOI_2d_heatmap(quo(temp_log))
 QOI_2d_heatmap(master_df, quo(temp))
 QOI_2d_heatmap(master_df, quo(souener))
@@ -147,19 +147,20 @@ master_df %>% filter(time<=2.5e-6) %>% mutate(souener_rank=rank(souener)/n()) %>
 master_df %>% filter(time<2.5e-6) %>% mutate(temp_rank=rank(temp)/n()) %>% QOI_2d_heatmap(quo(temp_rank), alpha=0.6)
 
 start_data = master_df %>% filter(time_key==2) %>% arrange(time, x) %>% select(sim_type, starts_with('Yi'))
-start_CT = start_data %>% filter(sim_type==sim_type_aliases$expr) %>% select(-sim_type)
-start_TC = start_data %>% filter(sim_type==sim_type_aliases$ctrl) %>% select(-sim_type)
-all.equal(start_CT, start_TC)
+start_Expr = start_data %>% filter(sim_type==sim_type_aliases$expr) %>% select(-sim_type)
+start_Ctrl = start_data %>% filter(sim_type==sim_type_aliases$ctrl) %>% select(-sim_type)
+all.equal(start_Expr, start_Ctrl)
 
 # This won't make sense until we get fixed time steps.
 # master_df %>% residual_2d_heatmap(quo(souener), relative=F)
 # master_df %>% residual_2d_heatmap(quo(temp), relative=F)
 
-dCPV_TC = TC_df %>% select(starts_with('dCPV'))
-dCPV_CT = CT_df %>% select(starts_with('dCPV'))
-(xcor_mat = cor(dCPV_TC, dCPV_CT[1:nrow(dCPV_TC),]))
-image(xcor_mat, main='Cross correlation between CPV source terms in CT/TC',
-      xlab=sim_type_aliases$expr, ylab=sim_type_aliases$ctrl)
+dCPV_Ctrl = Ctrl_df %>% select(starts_with('dCPV'))
+dCPV_Expr = Expr_df %>% select(starts_with('dCPV'))
+(xcor_mat = cor(dCPV_Ctrl, dCPV_Expr[1:nrow(dCPV_Ctrl),]))
+title=paste0('Cross correlation between CPV source terms in ',
+             sim_type_aliases$expr,'/',sim_type_aliases$ctrl)
+image(xcor_mat, main=title, xlab=sim_type_aliases$expr, ylab=sim_type_aliases$ctrl)
 
 ############################# Aggregate Plots #############################
 
@@ -193,19 +194,19 @@ master_df %>% make_agg_plots()
 
 # parallel coordinate plots, interesting & useful for high-dim data!
 n_timesteps=30
-CT_df %>% arrange(time) %>% select(starts_with('Yi'), zmix, time) %>%
+Expr_df %>% arrange(time) %>% select(starts_with('Yi'), zmix, time) %>%
   group_by(time) %>% summarise_all(mean) %>% head(n=n_timesteps) %>%
   parallel_coordinate_response(quo(time), title=sim_type_aliases$expr, scale=F)
-TC_df %>% arrange(time) %>% select(starts_with('Yi'), zmix, time) %>%
+Ctrl_df %>% arrange(time) %>% select(starts_with('Yi'), zmix, time) %>%
    group_by(time) %>% summarise_all(mean) %>% head(n=n_timesteps) %>%
    parallel_coordinate_response(quo(time), title=sim_type_aliases$ctrl, scale=F)
 
 ########################## Investigate L1 Constraint ##########################
 # 
 # weight_matrix = read.csv(weights_fn, row.names=1) %>% as.matrix()
-# TC_Yi_matrix = TC_df %>% select(starts_with('Yi')) %>% as.matrix()
-# CT_Yi_matrix = CT_df %>% select(starts_with('Yi')) %>% as.matrix()
-# CT_CPV_matrix = CT_df %>% select(starts_with('CPV')) %>% as.matrix()
+# TC_Yi_matrix = Ctrl_df %>% select(starts_with('Yi')) %>% as.matrix()
+# CT_Yi_matrix = Expr_df %>% select(starts_with('Yi')) %>% as.matrix()
+# CT_CPV_matrix = Expr_df %>% select(starts_with('CPV')) %>% as.matrix()
 # CT_constrained_CPVs = CT_Yi_matrix%*%weight_matrix
 # CT_constrained_CPVs_unity_L2 = (CT_Yi_matrix/apply(CT_Yi_matrix, -2, norm, type='2'))%*%weight_matrix
 # 
@@ -257,7 +258,7 @@ TC_df %>% arrange(time) %>% select(starts_with('Yi'), zmix, time) %>%
 #   loess(Y~., data=total_df)
 # }
 # 
-# #loess_m = TC_df %>% loess_fit('souener')
+# #loess_m = Ctrl_df %>% loess_fit('souener')
 # 
 # fit_field_models = function(df, cols, fit_func=loess_fit) {
 #   field_models = cols %>% map(~loess_fit(df,.x))
