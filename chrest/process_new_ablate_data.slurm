@@ -22,8 +22,8 @@ conda activate
 #export data_dir=~/ClionProjects/ablate/ablateInputs/chemtabDiffusionFlame/_1DSampleDiffusionFlame.10504.bak/flowField_mixtureFraction
 
 # a little automation to select most recent simulation run!
-#data_dir=~/ClionProjects/ablate/ablateInputs/chemtabDiffusionFlame/_1DSampleChemTabDiffusionFlame_*/flowField_chemTab
-data_dir=~/ClionProjects/ablate/ablateInputs/chemtabDiffusionFlame/_1DSampleDiffusionFlame*/flowField_mixtureFraction
+data_dir=~/ClionProjects/ablate/ablateInputs/chemtabDiffusionFlame/_1DSampleChemTabDiffusionFlame_*/flowField_chemTab
+#data_dir=~/ClionProjects/ablate/ablateInputs/chemtabDiffusionFlame/_1DSampleDiffusionFlame*/flowField_mixtureFraction
 export data_dir=$(ls -dt $data_dir | tr ' ' '\n' | head -n 1)
 echo data_dir=$data_dir
 
@@ -31,9 +31,12 @@ export should_rebalance=0
 #export should_rebalance=1
 post_glob="*.?????.csv.gz"
 ((should_rebalance)) && post_glob="*-rebalanced.csv.gz"
-#rm $data_dir/$post_glob # optionally remove all previous files (e.g. if they are defective/outdated)
+rm $data_dir/$post_glob # optionally remove all previous files (e.g. if they are defective/outdated)
 
 . wrangle_all_ablate_data.sh
 
 Rscript Collate_Ablate_Data.R $data_dir/$post_glob
-mv ablate_collated.csv.gz ablate_collated.$RANDOM.csv.gz
+mkdir ablate_collated.new
+mv ablate_collated.csv.gz ablate_collated.new/.
+Rscript FitCPVs.R ablate_collated.new/ablate_collated.csv.gz
+mv ablate_collated.new ablate_collated.$RANDOM
