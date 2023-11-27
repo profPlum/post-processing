@@ -91,6 +91,9 @@ cat('CDing to data directory.\n') # AFTER loading csv...
 Sys.sleep(1)
 
 Chemtab_data = read_csv(Chemtab_fn) %>% mutate(souspecAR=0)
+# we should only add the CPVs if they aren't already there!
+stopifnot(!any(grepl('mass_CPV', colnames(Chemtab_data)))) 
+stopifnot(!any(grepl('source_CPV', colnames(Chemtab_data))))
 if ('Zmix' %in% colnames(Chemtab_data)) Chemtab_data = Chemtab_data %>% rename(zmix=Zmix)
 mass_frac_data = Chemtab_data %>% select(starts_with('Yi'))
 souspec_data = Chemtab_data %>% select(starts_with('souspec'))
