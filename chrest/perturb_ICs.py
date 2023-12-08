@@ -16,7 +16,7 @@ import numpy as np
   field:  2.66E-08
 """
 
-_spread_default=0.3
+_spread_default=0.75
 
 class IC_Cfg:
     def __init__(self, IC_cfg_path: str, modified_IC_cfg_path: str=None, spread: float=_spread_default):

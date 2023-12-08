@@ -126,8 +126,9 @@ names(zmix_coefs)=gsub('`', '', names(zmix_coefs))
 excluded_Yis = setdiff(colnames(mass_frac_data), names(zmix_coefs))
 zmix_coefs[excluded_Yis]=0
 zmix_coefs=zmix_coefs[colnames(mass_frac_data)] # sort
-stopifnot(max(abs(zmix_coefs)) < 50)
 
+cat('max zmix coef: ', max(abs(zmix_coefs)), '\n')
+stopifnot(max(abs(zmix_coefs)) < 50)
 save(zmix_lm, file='zmix_lm.RData')
 
 export_CPVs_and_rotation = function(use_QR=F) {
@@ -171,6 +172,7 @@ export_CPVs_and_rotation = function(use_QR=F) {
   stopifnot(sub('souspec', 'Yi', colnames(souspec_data))==rownames(Q_rot))
   CPV_sources = as.matrix(souspec_data)%*%Q_rot %>% as_tibble()
   colnames(CPV_sources) = colnames(CPV_sources) %>% paste0('source_', .)
+  cat('max(abs(CPV_sources$source_CPV_zmix)): ', max(abs(CPV_sources$source_CPV_zmix)), '\n')
   stopifnot(max(abs(CPV_sources$source_CPV_zmix))<1e-6) # should be approximately 0
   
   stopifnot(colnames(mass_frac_data)==rownames(Q_rot))
