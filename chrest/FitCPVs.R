@@ -78,8 +78,12 @@ fit_significant_lm = function(formula, data, significance_level=0.05,
 
 # Accept n_PCs from env variable!
 n_PCs=as.integer(Sys.getenv()['N_CPVS'])
-if (is.na(n_PCs)) n_PCs = 25 # default is 25 which is more than enough, you can cut short by using regex pattern
+if (is.na(n_PCs)) n_PCs = 53 # default is 53 you can/should cut short by using regex pattern later
 cat('N_CPVs: ', n_PCs, '(change via N_CPVS env var)\n')
+
+identity_weights=as.logical(Sys.getenv()['IDENTITY_WEIGHTS'])
+if (is.na(identity_weights)) identity_weights=F
+cat('IDENTITY_WEIGHTS: ', identity_weights, '\n')
 
 #use_QR=as.logical(Sys.getenv()['QR'])
 #if (is.na(use_QR)) use_QR=FALSE # the original motivation for QR should be irrelevant now...
@@ -131,7 +135,7 @@ cat('max zmix coef: ', max(abs(zmix_coefs)), '\n')
 stopifnot(max(abs(zmix_coefs)) < 50)
 save(zmix_lm, file='zmix_lm.RData')
 
-export_CPVs_and_rotation = function(use_QR=F) {
+export_CPVs_and_rotation = function(use_QR=F, identity=F) {
   # NOTE: ONLY variance weighted PCA makes sense... Because if you apply the scaling matrix then 1 of 2 things
   # happen: either you have: an enormous matrix which is not at all orthonormal (e.g. col norm~=1e20, hence bounds
   # of proof doesn't apply), or you then apply QR which removes the scaling anyhow since it enforces orthonormality. 
@@ -147,9 +151,19 @@ export_CPVs_and_rotation = function(use_QR=F) {
   rotation = mass_PCA$rotation
   if (!variance_weighted) rotation = diag(1/mass_PCA$scale)%*%mass_PCA$rotation # emb scaling
   stopifnot(all.equal(as.matrix(mass_frac_data)%*%rotation, mass_PCA$x))
-  stopifnot(all(names(zmix_coefs)==rownames(rotation)))
+  CPV_postfixes=1:n_PCs-1
+ 
+  if (identity) {
+    stopifnot(n_PCs==ncol(mass_frac_data))
+    stopifnot(!use_QR)
+    rotation=diag(ncol(mass_frac_data))
+    CPV_postfixes=sub('Yi', '', colnames(mass_frac_data))
+  }
+  
   rownames(rotation) = colnames(mass_frac_data)
-  colnames(rotation) = paste0('CPV_PC_', 1:n_PCs-1) # colnames renamed from V1 for clarity & for matching with 'like' in pandas
+  colnames(rotation) = paste0('CPV_PC_', CPV_postfixes) # colnames renamed from V1 for clarity & for matching with 'like' in pandas
+  stopifnot(all(names(zmix_coefs)==rownames(rotation)))
+
   zmix_coef_norm=norm(as.matrix(zmix_coefs), type='2')
   rotation = cbind(CPV_zmix=zmix_coefs/zmix_coef_norm, rotation) # ^ I've confirmed that ablate code doesn't rely on column names anyways...
 
@@ -201,5 +215,5 @@ export_CPVs_and_rotation = function(use_QR=F) {
   ###############################################################################################
 }
 
-result=export_CPVs_and_rotation(use_QR=T)
-result=export_CPVs_and_rotation(use_QR=F)
+result=export_CPVs_and_rotation(use_QR=F, identity=identity_weights)
+if (!identity_weights) result=export_CPVs_and_rotation(use_QR=T)
