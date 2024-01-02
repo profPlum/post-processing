@@ -125,7 +125,7 @@ def make_groups(df, n=100, dims = ['x','y','z']):
     print(groups.describe())
 
     # since it is 3d and we want n across each dimension that makes n^3 super-cubes
-    # (or less since technically not ever "super-group" will have members)
+    # (or less since technically not every "super-group" will have members)
     assert len(np.unique(groups))<=n**len(dims)
     return groups
 
@@ -200,11 +200,13 @@ if __name__=='__main__':
     df = df_builder.df
 
     dim_names=['x','y','z']
-    groups = make_groups(df, n = args.n_cubes_per_dim, dims=dim_names)
-    df_builder.add_df_array(groups, columns='group', coords=df[dim_names])
+    time_const = ablate_data[0].times[0] # we process only one 1 time-step at once (so time is constant)
+
+    spatial_groups = make_groups(df, n = args.n_cubes_per_dim, dims=dim_names)
+    groups = spatial_groups.astype(str) + '|' + str(time_const) # groups should be coupled with time otherwise we get only 100 training examples
+    df_builder.add_df_array(pd.concat([groups, spatial_groups], axis=1), columns=['group', 'spatial_group'], coords=df[dim_names])
     df = df_builder.df
-    df['time']=ablate_data[0].times[0] 
-    # this is fine b/c we process one 1 time-step at once (so time is constant)
+    df['time']=time_const
 
     rebalanced_str=''
     if args.rebalance_flame:
