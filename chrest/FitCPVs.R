@@ -3,49 +3,6 @@ source('~/.Rprofile')
 
 ########################## Helper Functions: ##########################
 
-## Everything is verified except whether it is ok to ignore bias: 8/2/22
-#fit_linear_transform = function(X_df, Y_df) {
-#  # verified to work 8/2/22 (checks that data frames are all numeric)
-#  stopifnot(is.numeric(as.matrix(X_df)))
-#  stopifnot(is.numeric(as.matrix(Y_df)))
-#
-#  rotation_matrix = NULL
-#  for (j in 1:ncol(Y_df)) {
-#    # TODO: verify that it is ok to ignore bias here?
-#    model = lm(as.matrix(Y_df)[,j]~.-1, data=X_df) 
-#  
-#    print(summary(model))
-#    rotation_matrix = cbind(rotation_matrix, coef(model))
-#  }
-#  colnames(rotation_matrix) = colnames(Y_df)
-#  rownames(rotation_matrix) = gsub('`', '', rownames(rotation_matrix))
-#
-#  
-#  # print R^2 of entire rotation matrix
-#  R2 = 1-sum(apply((as.matrix(X_df)%*%rotation_matrix-Y_df)**2, -1, mean)/apply(Y_df, -1, var))
-#  cat('R2 of linear transform fit: ', R2)
-#
-#  return(rotation_matrix)
-#}
-#
-#glmnet_R2 = function(glmnet_cv_out, s='lambda.min') {
-#  ids = list(lambda.min=glmnet_cv_out$index[[1]], lambda.1se=glmnet_cv_out$index[[2]])
-#  R_Squared_train = glmnet_cv_out$glmnet.fit$dev.ratio[[ ids[[s]] ]]
-#  return(R_Squared_train)
-#}
-#
-## returns coefs as named vector (like we expect)
-#coef.cv.glmnet = function(cv, s='lambda.min', ...) {
-#  lm_coefs_raw = glmnet::coef.glmnet(cv, s=s, ...)
-#  lm_coefs = as.vector(lm_coefs_raw)
-#  names(lm_coefs) = gsub('`', '', rownames(lm_coefs_raw))
-#  return(lm_coefs)
-#}
-#
-#glmnet=function(formula, data, ...) #TODO: figure out corresponding method for predict() which can reuse formula + new df flexibly
-#  glmnet::cv.glmnet(as.matrix(model.matrix(formula, data=data)), y=data[[ all.vars(formula)[[1]] ]], intercept=F, ...)
-#  # if user requests it intercept will implicitly be included by formula
-
 # NOTE: you can pass lm=glm for glm type model! (glm doesn't show R^2 though...)
 fit_significant_lm = function(formula, data, significance_level=0.05,
                               lm_fit=lm, ...) {
@@ -158,6 +115,7 @@ export_CPVs_and_rotation = function(use_QR=F, identity=F) {
     stopifnot(!use_QR)
     rotation=diag(ncol(mass_frac_data))
     CPV_postfixes=sub('Yi', '', colnames(mass_frac_data))
+    stopifnot(!any('Yi' %in% CPV_postfixes))
   }
   
   rownames(rotation) = colnames(mass_frac_data)
@@ -168,7 +126,12 @@ export_CPVs_and_rotation = function(use_QR=F, identity=F) {
   rotation = cbind(CPV_zmix=zmix_coefs/zmix_coef_norm, rotation) # ^ I've confirmed that ablate code doesn't rely on column names anyways...
 
   if (use_QR) {
+    rotation = rotation[,1:min(n_PCs, nrow(rotation))] # truncate to square if needed (this is ok with QR)
     Q_rot = rotation %>% qr() %>% qr.Q() # doesn't effect reconstruction loss!
+    cat('str(Q_rot): ')
+    print(str(Q_rot))
+    cat('str(rotation): ')
+    print(str(rotation))
     dimnames(Q_rot)=dimnames(rotation)
 
     # It flips the sign of the zmix weights & normalizes them, we flip sign back but keep it normalized
