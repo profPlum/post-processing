@@ -18,14 +18,14 @@ fi
 echo proceeding! with input hdf5: $1
 
 echo checking if we have chemtab output...
-fields_list="monitor_energySource:souener monitor_Yi:Yi aux_temperature:temp"
+fields_list="monitor_energySource:souener monitor_Yi:Yi aux_pressure:pressure aux_temperature:temp"
 if [[ $chemtab_output ]]; then
     echo answer: True
-    fields_list="$fields_list aux_Progress:mass_ monitor_progressSource:source_"
+    fields_list="$fields_list solution_densityProgress:density_ aux_Progress:mass_ monitor_progressSource:source_"
     # results in: mass_CPV_PC* & source_CPV_PC*, verified 10/4/23
 else
     echo answer: False
-    fields_list="$fields_list monitor_yiSource:souspec monitor_zMix:zmix"
+    fields_list="$fields_list solution_densityYi:density_ monitor_yiSource:souspec monitor_zMix:zmix"
 fi
 
 # processes 1 ablate file
