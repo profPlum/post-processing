@@ -53,8 +53,11 @@ Sys.sleep(1)
 
 Chemtab_data = read_csv(Chemtab_fn) %>% mutate(souspecAR=0)
 # we should only add the CPVs if they aren't already there!
-stopifnot(!any(grepl('mass_CPV', colnames(Chemtab_data)))) 
-stopifnot(!any(grepl('source_CPV', colnames(Chemtab_data))))
+CPVs_already_fitted = any(grepl('mass_CPV', colnames(Chemtab_data))) || any(grepl('source_CPV', colnames(Chemtab_data))) 
+if (CPVs_already_fitted) stop("It doesn't make sense to fit CPVs to this data because it already has CPVs fit\n (i.e. this script should be applied to raw TChem data).")
+
+#stopifnot(!any(grepl('mass_CPV', colnames(Chemtab_data)))) 
+#stopifnot(!any(grepl('source_CPV', colnames(Chemtab_data))))
 if ('Zmix' %in% colnames(Chemtab_data)) Chemtab_data = Chemtab_data %>% rename(zmix=Zmix)
 mass_frac_data = Chemtab_data %>% select(starts_with('Yi'))
 souspec_data = Chemtab_data %>% select(starts_with('souspec'))
