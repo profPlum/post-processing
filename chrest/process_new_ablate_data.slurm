@@ -17,8 +17,8 @@ source ~/.bash_profile
 conda activate
 
 # a little automation to select most recent simulation run!
-#data_dir=~/ClionProjects/ablate/ablateInputs/chemtabDiffusionFlame/_1DSampleChemTabDiffusionFlame*/flowField_chemTab
-data_dir=~/ClionProjects/ablate/ablateInputs/chemtabDiffusionFlame/_1DSampleDiffusionFlame*/flowField_mixtureFraction
+data_dir=~/ClionProjects/ablate/ablateInputs/chemtabDiffusionFlame/_1DSampleChemTabDiffusionFlame*/flowField_chemTab
+#data_dir=~/ClionProjects/ablate/ablateInputs/chemtabDiffusionFlame/_1DSampleDiffusionFlame*/flowField_mixtureFraction
 #data_dir=~/CLionProjects/ablate/ablateInputs/chemTabDiffusionFlame/_tchemMethaneDiffusionFlameResults/flowField_mixtureFraction
 export data_dir=$(ls -dt $data_dir | tr ' ' '\n' | head -n 1)
 echo data_dir=$data_dir

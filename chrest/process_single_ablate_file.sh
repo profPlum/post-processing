@@ -13,7 +13,7 @@ echo final_output: $final_output
 
 if [[ -e "$final_output" ]]; then
     echo exiting, final output already exists
-    return 0 || exit 0 &> /dev/null
+    return 0 &> /dev/null || exit 0
 fi
 echo proceeding! with input hdf5: $1
 
