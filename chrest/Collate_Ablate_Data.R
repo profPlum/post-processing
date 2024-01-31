@@ -5,7 +5,7 @@ setwd('/Users/dwyerdeighan/Desktop/post-processing/chrest')
 #all_files=c('CollatedDatasets/perturbed1_collated.csv.gz', 'CollatedDatasets/perturbed2_collated.csv.gz', 'CollatedDatasets/TChem_collated.csv.gz')
 
 # post_glob="*.?????.csv.gz"
-# data_dir="~/ClionProjects/ablate/ablateInputs/chemtabDiffusionFlame/_1DSampleChemTabDiffusionFlame*/flowField_chemTab"
+# data_dir="~/ClionProjects/ablate/ablateInputs/chemtabDiffusionFlame/_tchemMethaneDiffusionFlameResults*/flowField_mixtureFraction"
 # all_files=tail(Sys.glob(file.path(data_dir, post_glob)), n=10)
 
 all_files = commandArgs(trailingOnly=T) # like: sys.argv
@@ -26,8 +26,10 @@ get_density = function(df) {
   return(density_estimates)
 }
 
-density_estimates = get_density(df)
-df = df %>% select(-starts_with('density')) %>% mutate(density = density_estimates)
+if (any(grepl('density',colnames(df)))) {
+  density_estimates = get_density(df)
+  df = df %>% select(-starts_with('density')) %>% mutate(density = density_estimates)
+}
 
 dts = df %>% arrange(time_key) %>% group_by(time_key) %>% summarise(time=mean(time)) %>% mutate(dt=c(diff(time), 0))
 dts = dts[-nrow(dts),] # drop final row since dt is poorly defined
