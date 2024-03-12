@@ -1,26 +1,30 @@
 library(tidyverse)
 library(gganimate)
 source('~/.RProfile')
+select=dplyr::select
 
-SS_resume_comparison = F
+SS_resume_comparison = F # good defaults
+weights_fn <- '~/CLionProjects/ablate/ablateInputs/chemTabDiffusionFlame/chemTabTestModel_1/weights.csv'
 
-#expr_fn <- 'Perturbed+_FW_collated2/TChem+CPVs+Zmix_MassR2.csv.gz'
-#ctrl_fn <- 'Perturbed+_FW_collated1/TChem+CPVs+Zmix_MassR2.csv.gz'
 
-#ctrl_fn = '~/Downloads/Data/5_CPV_data/TChem+CPVs+Zmix_MassR2.csv.gz'
-ctrl_fn = '~/Downloads/Data/10_CPV_data/TChem+CPVs+Zmix_MassR2.csv.gz'
-expr_fn <- 'CollatedDatasets/ZmixSource=0_NoQR_10CPVs_BUGFIX.csv.gz'
+#ctrl_fn <- '/Users/dwyerdeighan/Downloads/Data/25_CPV_data/TChem+CPVs+Zmix_MassR2.csv.gz'
+ctrl_fn <- 'CollatedDatasets/TChem_All_collated/TChem+CPVs+Zmix_MassR2_new.csv.gz'
+expr_fn = 'CollatedDatasets/CT_99%Batch1000_R2=1_collated.csv.gz'
 
-#ctrl_fn = 'ablate_methane_steadystate_collated/TChem+CPVs+Zmix_MassR2.csv.gz'
-#expr_fn = 'CollatedDatasets/CT_from_TC_SS_collated.csv.gz'
-#SS_resume_comparison = T
+### SS resume experiments ###
+#expr_fn = 'CollatedDatasets/MethaneSS-current/TChem+CPVs+Zmix_MassR2.csv.gz'
+#ctrl_fn = 'CollatedDatasets/TC_Methane_SS++_collated/TChem+CPVs+Zmix_MassR2.csv.gz'
+# expr_fn = 'CollatedDatasets/CT_from_TC_Methane_SS++/CT_from_TC_SS++_long.csv.gz'
+# ctrl_fn = 'CollatedDatasets/TC_Methane_SS_collated/TChem+CPVs+Zmix_MassR2.csv.gz'
+# expr_fn = 'CollatedDatasets/CT_from_TC_SS_collated.csv.gz'
+# SS_resume_comparison = T
 
-weights_fn <- '~/CLionProjects/ablate/ablateInputs/chemTabDiffusionFlame/CTV2_ZmixSource=0_NoQR_10CPVs/weights.csv'
+#weights_fn <- '~/CLionProjects/ablate/ablateInputs/chemTabDiffusionFlame/CTV2_ZmixSource=0_NoQR_10CPVs/weights.csv'
 
 sim_type_aliases=list(ctrl='TChem', expr='Chemtab') # for easy comparison across different simulations
 
 if (SS_resume_comparison) {
-  weights_fn <- 'ablate_methane_steadystate_collated/rot_MassR2.csv.gz'
+  weights_fn <- 'CollatedDatasets/TC_Methane_SS++_collated/rot_MassR2.csv.gz'
   sim_type_aliases$expr='Chemtab_Resume'
 }
 ####################### Load & Post-Process Data #########################
@@ -57,6 +61,9 @@ master_df = Expr_df %>% rbind(Ctrl_df) %>% na.exclude() %>%
   mutate(sim_type=as_factor(sim_type)) %>% 
   rename_all(compose(~sub('_PC_', '_', .x), ~sub('mass_CPV', 'CPV', .x),
                      ~sub('source_CPV', 'dCPV', .x))) %>% arrange(time,x,y,z)
+
+master_df = master_df %>% group_by(sim_type, x, y, z) %>% arrange(time_key) %>% mutate(energy=cumsum(souener*dt)) %>% ungroup()
+
 Ctrl_df = master_df %>% filter(sim_type==sim_type_aliases$ctrl)
 Expr_df = master_df %>% filter(sim_type==sim_type_aliases$expr)
 print(colnames(master_df))
@@ -67,8 +74,7 @@ print(colnames(master_df))
 # This also doesn't make sense until we have fixed timesteps (that is beyond the first few time_keys)
 start_plot = function(QOI, .time_key=2) master_df %>% filter(time_key==.time_key) %>%
   qplot(x, !!QOI, data=., color=sim_type, alpha=.default_aplha,
-        main=paste0('start_plot: ', as_label(QOI), ' time_key=', .time_key)) %>%
-  print()
+        main=paste0('start_plot: ', as_label(QOI), ' time_key=', .time_key))# %>% print()
 
 qq_on_col = function(col) qqplot(Ctrl_df[[col]], Expr_df[[col]], main=paste0('QOI: ', col, ', QQ-plot'),
                                  xlab=paste0(sim_type_aliases$ctrl, '_', col), ylab=paste0(sim_type_aliases$expr,'_', col))
@@ -144,21 +150,21 @@ agg_QOI_2d_heatmap = function(master_df, QOIs, rank=T, title='QOI Heatmap Compar
   p <- ggplot(plot_data, aes(x=x,y=time)) + geom_point(aes(color=value), alpha=.default_aplha) +
     theme(axis.text.x=element_text(angle=45)) + facet_grid(sim_type~name) + 
     ggtitle(title) + labs(color=ifelse(rank, 'value (ordinal)', 'value'))
-  ggsave(paste0(gsub(' ', '_', title), '.png'))
   print(p)
+  ggsave(paste0(gsub(' ', '_', title), '.png'))
 }
 
 make_agg_plots = function(master_df) {
   master_df %>% agg_QOI_2d_heatmap(QOIs, rank=T)
   master_df %>% agg_QOI_2d_heatmap(QOIs_Yi, title='Yi Comparison', rank=F)
-  master_df %>% agg_QOI_2d_heatmap(QOIs_CPV, title='CPV Comparison', rank=T)
+  master_df %>% agg_QOI_2d_heatmap(QOIs_CPV, title='CPV Comparison', rank=F)
   master_df %>% agg_QOI_2d_heatmap(QOIs_CPV_source, title='CPV_source Comparison', rank=T)
 }
 
 ############################### QOIs: ####################################
 
 QOIs_Yi = c('YiC2H4', 'YiO2', 'YiCO', 'YiCO2', 'YiH2O', 'YiOH', 'YiH2', 'YiCH4')
-QOIs=c('zmix', 'souener', 'temp', QOIs_Yi)
+QOIs=c('zmix', 'energy', 'souener', 'temp', QOIs_Yi)
 (QOIs = QOIs[QOIs %in% colnames(Ctrl_df)])
 (QOIs_CPV = master_df %>% select(starts_with('CPV')) %>% summarise_all(sd) %>% 
   as_vector() %>% sort(decreasing=T) %>% head(n=10) %>% names())
@@ -176,8 +182,9 @@ if (SS_resume_comparison) {
   # Verify Resume ICs are correct
   QOIs %>% syms %>% map(~start_plot(.x, .time_key=max(Ctrl_df$time_key)))
   
-  Expr_df %>% agg_QOI_2d_heatmap(QOIs, rank=T)
+  Expr_df %>% make_agg_plots() # we can't compare to control because that is the starting point
   
+  # plot dt
   Expr_time_df = Expr_df %>% filter(x==min(x)) %>% select(time, time_key) %>% .[1:500,]
   dt=diff(Expr_time_df$time)
   time = Expr_time_df$time[-1]
@@ -195,7 +202,8 @@ if (SS_resume_comparison) {
   temp_convergence_error_l2 = tibble(time_key=as.integer(names(temp_convergence_error_l2)), temp_convergence_error_l2)
   temp_convergence_error_l2 = Expr_df %>% select(time, time_key) %>% unique() %>% right_join(temp_convergence_error_l2)
   
-  qplot(time, temp_convergence_error_l2, data=temp_convergence_error_l2)
+  qplot(time, temp_convergence_error_l2, data=temp_convergence_error_l2) %>% print()
+  QOI_2d_heatmap(Expr_df, quo(temp)) %>% print()
   stop('Done')
 }
 
@@ -203,6 +211,7 @@ if (SS_resume_comparison) {
 
 qq_on_col('souener')
 qq_on_col('temp')
+qq_on_col('energy')
 
 # look at start plot values to find divergence point
 rev(QOIs) %>% syms %>% map(~start_plot(.x, .time_key=2))
@@ -212,15 +221,18 @@ master_df %>% filter(time<2.5e-6) %>% mutate(souener_log=log(souener-min(souener
   QOI_2d_heatmap(quo(souener_log))
 master_df %>% filter(time<2.5e-6) %>% mutate(temp_log=log(temp-min(temp)+1)) %>%
   QOI_2d_heatmap(quo(temp_log))
-QOI_2d_heatmap(Expr_df, quo(temp))
-# QOI_2d_heatmap(Expr_df, quo(souener))
+QOI_2d_heatmap(master_df, quo(log(temp+1)))
+
+QOI_2d_heatmap(master_df, quo(energy))
 # QOI_2d_heatmap(master_df, quo(dCPV_zmix))
 # QOI_2d_heatmap(master_df, quo(CPV_zmix))
 # QOI_2d_heatmap(master_df, quo(zmix))
 
 # Ordinal Temp & Souener
 master_df %>% filter(time<=2.5e-6) %>% mutate(souener_rank=rank(souener)/n()) %>% QOI_2d_heatmap(quo(souener_rank), alpha=0.6)
-master_df %>% filter(time<2.5e-6) %>% mutate(temp_rank=rank(temp)/n()) %>% QOI_2d_heatmap(quo(temp_rank), alpha=0.6)
+master_df %>% filter(time>2.5e-6) %>% mutate(temp_rank=rank(temp)/n()) %>% QOI_2d_heatmap(quo(temp_rank), alpha=0.6)
+
+start_plot(quo(temp), .time_key=700)
 
 # Relative error between ICs:
 start_data = master_df %>% filter(time_key==2) %>% arrange(time, x) %>% select(sim_type, starts_with('Yi'))
@@ -259,47 +271,88 @@ plot(zmix_sd$x, zmix_sd$CPV_zmix)
 
 ########################## Investigate L1 Constraint ##########################
 
-weight_matrix = read.csv(weights_fn, row.names=1) %>% as.matrix()
-stopifnot(Expr_df$time==sort(Expr_df$time))
-stopifnot(Ctrl_df$time==sort(Ctrl_df$time))
-#TC_Yi_matrix = Ctrl_df %>% arrange(time,x) %>% select(starts_with('Yi')) %>% as.matrix()
-CT_Yi_matrix = Expr_df %>% select(starts_with('Yi')) %>% rename_all(~sub('Yi', '', .x)) %>% as.matrix()
-CT_CPV_matrix = Expr_df %>% select(starts_with('CPV')) %>% as.matrix()
-CT_constrained_CPVs = CT_Yi_matrix%*%weight_matrix
-stopifnot(colnames(CT_Yi_matrix)==rownames(weight_matrix))
-CT_constrained_CPVs_unity_L2 = (CT_Yi_matrix/apply(CT_Yi_matrix, -2, norm, type='2'))%*%weight_matrix
+# weight_matrix = read.csv(weights_fn, row.names=1) %>% as.matrix()
+# stopifnot(Expr_df$time==sort(Expr_df$time))
+# stopifnot(Ctrl_df$time==sort(Ctrl_df$time))
+# TC_Yi_matrix = Ctrl_df %>% select(starts_with('Yi')) %>% as.matrix()
+# CT_Yi_matrix = Expr_df %>% select(starts_with('Yi')) %>% rename_all(~sub('Yi', '', .x)) %>% as.matrix()
+# CT_CPV_matrix = Expr_df %>% select(starts_with('CPV')) %>% as.matrix()
+# weight_matrix <- weight_matrix[,1:ncol(CT_CPV_matrix)]
+# colnames(weight_matrix)=sub('_PC', '', colnames(weight_matrix))
+# 
+# CT_constrained_CPVs = CT_Yi_matrix%*%weight_matrix
+# stopifnot(colnames(CT_Yi_matrix)==rownames(weight_matrix))
+# stopifnot(gsub('\\(|\\)', '.', colnames(CT_CPV_matrix))==colnames(weight_matrix))
+# CT_constrained_CPVs_unity_L2 = (CT_Yi_matrix/apply(CT_Yi_matrix, -2, norm, type='2'))%*%weight_matrix
+# 
+# # #### This is PROOF that CPVs within [-1,1] can correspond to invalid Yis in the L1 sense ####
+# # L1_Invalid_Yis = CT_Yi_matrix/2
+# # L1_Invalid_CPVs_within_bounds = L1_Invalid_Yis%*%weight_matrix
+# # CPV_mins = apply(L1_Invalid_CPVs_within_bounds, -1, min)
+# # CPV_maxs = apply(L1_Invalid_CPVs_within_bounds, -1, max)
+# # ####################################################
+# 
+# CT_constraint_residuals = abs(CT_CPV_matrix-CT_constrained_CPVs) #/abs(CT_constrained_CPVs)
+# CT_constraint_residuals_across_time = apply(abs(CT_constraint_residuals), -2, mean)
+# residuals_df = Expr_df %>% select(time_key, time, x,y,z) %>% mutate(MAE_residuals=CT_constraint_residuals_across_time)
+# 
+# QOI_2d_heatmap(residuals_df, quo(MAE_residuals))
+# 
+# residuals_df %>% group_by(time) %>% summarise_at(vars(MAE_residuals), mean) %>%
+#   ggplot(aes(x=time, y=MAE_residuals)) + geom_line() +
+#   ggtitle('Constraint Residuals vs Time')
+# 
+# # Get dts:
+# time_key_time = Expr_df %>% group_by(time_key) %>% summarise(time=mean(time))
+# dts = diff(time_key_time$time)
+# summary(dts)
+# (dt = mean(dts))
+# 
+# n_steps = 1280
+# residuals_df %>% filter(time_key<=n_steps) %>% arrange(desc(time)) %>% summary()
+# 
+# (Yi_l2 = apply(CT_Yi_matrix, -2, norm, type='2'))
+# cat('head(Yi_l2):', head(Yi_l2))
+# (CPV_l2 = apply(CT_CPV_matrix, -2, norm, type='2'))
+# stopifnot(all(abs(CT_constrained_CPVs)<=Yi_l2))
+# stopifnot(all(apply(CT_constrained_CPVs[,-1], -2, norm, type='2')<=Yi_l2))
+# # this one is also implied by our proof (we remove zmix b/c it is not orthogonal)
+# 
+# apply(CT_CPV_matrix[,-1], -2, norm, type='2')<=Yi_l2
+# 
+# # SUPER INTERESTING! LOOK INTO THIS MORE!! <-- I did it was killed in rigorous sense with counter example.
+# CT_constrained_CPVs_unity_L2_norm = CT_constrained_CPVs_unity_L2[,-1] %>%
+#   apply(-2, norm, type='2')
+# hist(CT_constrained_CPVs_unity_L2_norm)
 
-CT_constraint_residuals = abs(CT_CPV_matrix-CT_constrained_CPVs) #/abs(CT_constrained_CPVs)
-CT_constraint_residuals_across_time = apply(abs(CT_constraint_residuals), -2, mean)
-residuals_df = Expr_df %>% select(time, x,y,z) %>% mutate(MAE_residuals=CT_constraint_residuals_across_time)
+# ######################################################
+# # TODO: do optimization on weight matrix to try and enforce some constraint (e.g. L2=1) on resulting manifold
+# Synthetic_Yis = t(matrix(runif(53*1000), 53))
+# colnames(Synthetic_Yis)=colnames(TC_Yi_matrix)
+# Synthetic_Yis = sweep(Synthetic_Yis, 1, apply(Synthetic_Yis, -2, sum), FUN='/')
+# summary(Synthetic_Yis)
+# dotchart(cumsum(Synthetic_Yis[1,]))
+# boxplot(Synthetic_Yis, las=2)
+################## Breaking L2 semi-conservation Regularity ##################
 
-QOI_2d_heatmap(residuals_df, quo(MAE_residuals))
+# L1_invalid_Yi = CT_Yi_matrix[sample(nrow(CT_Yi_matrix), 1),] + runif(ncol(CT_Yi_matrix))
+# 
+# Yi_variances = diag(var(TC_Yi_matrix)) %>% sort() %>% rev()
+# var_inverse_map = names(Yi_variances)
+# names(var_inverse_map) = rev(names(Yi_variances))
+# TC_Yi_matrix_inverted_variances = TC_Yi_matrix
+# TC_Yi_matrix_inverted_variances[,names(var_inverse_map)]=TC_Yi_matrix_inverted_variances[,var_inverse_map]
+# stopifnot(colnames(TC_Yi_matrix_inverted_variances)==colnames(TC_Yi_matrix))
+# stopifnot(sum(diag(var(TC_Yi_matrix_inverted_variances))[names(Yi_variances)]!=Yi_variances)==length(Yi_variances)-1)
+# 
+# TC_Yi_L2_norms = apply(TC_Yi_matrix, -2, norm)
+# TC_Yi_matrix_L2_normed = sweep(TC_Yi_matrix, 1, TC_Yi_L2_norms, FUN='/')
+# any(apply(TC_Yi_matrix_L2_normed, -2, norm, type='1')==1)
 
-residuals_df %>% group_by(time) %>% summarise_at(vars(MAE_residuals), mean) %>%
-  ggplot(aes(x=time, y=MAE_residuals)) + geom_line() +
-  ggtitle('Constraint Residuals vs Time')
-
-# Get dts:
-time_key_time = Expr_df %>% group_by(time_key) %>% summarise(time=mean(time))
-dts = diff(time_key_time$time)
-summary(dts)
-dt = mean(dts)
-
-n_steps = 81 # why?
-residuals_df %>% filter(time<=n_steps*dt) %>% arrange(desc(time))
-
-(Yi_l2 = apply(CT_Yi_matrix, -2, norm, type='2'))
-cat('head(Yi_l2):', head(Yi_l2))
-(CPV_l2 = apply(CT_CPV_matrix, -2, norm, type='2'))
-sanity <- abs(CT_constrained_CPVs)<=Yi_l2
-stopifnot(all(sanity))
-stopifnot(all(apply(CT_constrained_CPVs[,-1], -2, norm, type='2')<=Yi_l2))
-# this one is also implied by our proof
-
-# SUPER INTERESTING! LOOK INTO THIS MORE!!
-CT_constrained_CPVs_unity_L2_norm = CT_constrained_CPVs_unity_L2[,-1] %>%
-  apply(-2, norm, type='2')
-hist(CT_constrained_CPVs_unity_L2_norm)
+# TC_CPV_matrix = TC_Yi_matrix%*%weight_matrix
+# TC_weird_CPV_matrix = TC_Yi_matrix_inverted_variances%*%weight_matrix
+# hist(apply(TC_weird_CPV_matrix, -2, norm))
+# hist(apply(TC_CPV_matrix, -2, norm))
 
 ##################### Inspect Zmix Lm: #####################
 
@@ -315,13 +368,13 @@ hist(CT_constrained_CPVs_unity_L2_norm)
 # plot(TC_zmix_preds)
 
 # ################# LOESS does exactly the kind of time/space interpolation you want!! #################
-# 
+
 # # verified to work 10/12/23
 # loess_fit = function(X_df, Y, dims=c('time', 'x', 'y', 'z')) {
 #   total_df = as.data.frame(X_df) %>% select(Y=Y, dims) %>%
 #     na.exclude() %>% select_if(~sd(.x)>0)
 #   print(summary(total_df))
-#   loess(Y~., data=total_df)
+#   return(loess(Y~., data=total_df))
 # }
 # 
 # #loess_m = Ctrl_df %>% loess_fit('souener')
@@ -331,7 +384,7 @@ hist(CT_constrained_CPVs_unity_L2_norm)
 #   names(field_models)=cols
 #   class(field_models)='field_models'
 # }
-# # field_models = fit_field_models(master_df, cols=QOIs)
+# field_models = fit_field_models(master_df, cols=QOIs)
 # 
 # predict.field_models = function(models, newdata) {
 #   preds = models %>% map(~predict(.x, newdata=newdata)) %>% reduce(cbind)
@@ -361,5 +414,3 @@ hist(CT_constrained_CPVs_unity_L2_norm)
 # metric_df = tibble(Species=colnames(mass_frac_data), SD=VAR**0.5, MAE, R2, MAPE)
 # plot(metric_df)
 # metric_df
-
-

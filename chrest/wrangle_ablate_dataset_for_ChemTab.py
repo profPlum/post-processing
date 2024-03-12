@@ -133,7 +133,7 @@ def make_groups(df, n=100, dims = ['x','y','z']):
 def AblateData_factory(files):
     from ablateData import AblateData
     if isinstance(files, str): files=[files]
-    for fn in args.files:
+    for fn in files:
         assert os.path.exists(fn), f"The provided Ablate HDF5 file path doesn't exist: {fn}"
     ablate_data = AblateData(files)
     if len(ablate_data.vertices)==1:
